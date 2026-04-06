@@ -58,9 +58,28 @@ import {
   Send,
   Printer,
   Download,
-  FileText
+  FileText,
+  BarChart3,
+  Activity,
+  TrendingUp,
+  Clock
 } from "lucide-react";
 import { toast } from "sonner";
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  Cell,
+  PieChart,
+  Pie
+} from "recharts";
+import { format, subDays, isSameDay, startOfDay } from "date-fns";
 
 interface Booking {
   id: string;
@@ -84,11 +103,28 @@ interface ContactMessage {
   createdAt: Timestamp;
 }
 
+interface AnalyticsEvent {
+  id: string;
+  type: string;
+  page: string;
+  sessionId: string;
+  createdAt: Timestamp;
+}
+
+interface ActiveSession {
+  id: string;
+  sessionId: string;
+  lastActive: Timestamp;
+  page: string;
+}
+
 export default function AdminDashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [messages, setMessages] = useState<ContactMessage[]>([]);
+  const [events, setEvents] = useState<AnalyticsEvent[]>([]);
+  const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [bookingSearch, setBookingSearch] = useState("");
   const [messageSearch, setMessageSearch] = useState("");
@@ -175,6 +211,8 @@ export default function AdminDashboard() {
 
     const bQuery = query(collection(db, "bookings"), orderBy("createdAt", "desc"));
     const mQuery = query(collection(db, "contact_messages"), orderBy("createdAt", "desc"));
+    const eQuery = query(collection(db, "analytics_events"), orderBy("createdAt", "desc"));
+    const sQuery = query(collection(db, "active_sessions"), orderBy("lastActive", "desc"));
 
     const unsubB = onSnapshot(bQuery, (snapshot) => {
       setBookings(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking)));
@@ -184,9 +222,19 @@ export default function AdminDashboard() {
       setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ContactMessage)));
     }, (error) => handleFirestoreError(error, OperationType.LIST, "contact_messages"));
 
+    const unsubE = onSnapshot(eQuery, (snapshot) => {
+      setEvents(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AnalyticsEvent)));
+    }, (error) => handleFirestoreError(error, OperationType.LIST, "analytics_events"));
+
+    const unsubS = onSnapshot(sQuery, (snapshot) => {
+      setActiveSessions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ActiveSession)));
+    }, (error) => handleFirestoreError(error, OperationType.LIST, "active_sessions"));
+
     return () => {
       unsubB();
       unsubM();
+      unsubE();
+      unsubS();
     };
   }, [isAdmin]);
 
@@ -304,6 +352,14 @@ export default function AdminDashboard() {
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-6 h-6 text-teal-600" />
             <span className="font-bold text-slate-900">Admin Dashboard</span>
+            {activeSessions.filter(s => {
+              const lastActive = s.lastActive?.toDate();
+              return lastActive && (new Date().getTime() - lastActive.getTime()) < 120000;
+            }).length > 0 && (
+              <Badge className="ml-2 bg-teal-500 text-white animate-pulse border-none h-5 px-1.5 text-[10px]">
+                LIVE
+              </Badge>
+            )}
           </div>
           <div className="flex items-center gap-4">
             <Button variant="ghost" size="sm" className="rounded-lg text-slate-600 hidden md:flex" onClick={() => window.location.href = "/"}>
@@ -366,6 +422,9 @@ export default function AdminDashboard() {
               </TabsTrigger>
               <TabsTrigger value="messages" className="rounded-lg px-6 data-[state=active]:bg-slate-900 data-[state=active]:text-white">
                 Messages
+              </TabsTrigger>
+              <TabsTrigger value="analytics" className="rounded-lg px-6 data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+                Analytics
               </TabsTrigger>
             </TabsList>
 
@@ -554,6 +613,228 @@ export default function AdminDashboard() {
                 </TableBody>
               </Table>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="analytics" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Live Traffic Card */}
+              <Card className="rounded-2xl border-slate-200 lg:col-span-1">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg font-bold flex items-center gap-2">
+                      <Activity className="w-5 h-5 text-teal-600" />
+                      Live Traffic
+                    </CardTitle>
+                    <Badge className="bg-teal-500 text-white animate-pulse border-none">
+                      {activeSessions.filter(s => {
+                        const lastActive = s.lastActive?.toDate();
+                        return lastActive && (new Date().getTime() - lastActive.getTime()) < 120000;
+                      }).length} Active
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {activeSessions
+                      .filter(s => {
+                        const lastActive = s.lastActive?.toDate();
+                        return lastActive && (new Date().getTime() - lastActive.getTime()) < 120000;
+                      })
+                      .slice(0, 5)
+                      .map((session) => (
+                        <div key={session.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-slate-900 truncate max-w-[150px]">
+                              {session.page === "/" ? "Home" : session.page.replace("/", "").charAt(0).toUpperCase() + session.page.slice(2)}
+                            </span>
+                            <span className="text-[10px] text-slate-500">Session: {session.sessionId.slice(0, 8)}...</span>
+                          </div>
+                          <div className="flex items-center gap-1 text-[10px] text-teal-600 font-medium">
+                            <Clock className="w-3 h-3" />
+                            Just now
+                          </div>
+                        </div>
+                      ))}
+                    {activeSessions.filter(s => {
+                      const lastActive = s.lastActive?.toDate();
+                      return lastActive && (new Date().getTime() - lastActive.getTime()) < 120000;
+                    }).length === 0 && (
+                      <div className="text-center py-10 text-slate-400 text-sm">
+                        No active users right now
+                      </div>
+                    )}
+                  </div>
+                  
+                  <Button 
+                    variant="outline" 
+                    className="w-full mt-6 rounded-xl border-slate-200 text-slate-600"
+                    onClick={() => window.open('https://analytics.google.com', '_blank')}
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Open Google Analytics
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Traffic Trend Chart */}
+              <Card className="rounded-2xl border-slate-200 lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="text-lg font-bold flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-teal-600" />
+                    Traffic Trend (Last 7 Days)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart
+                      data={Array.from({ length: 7 }).map((_, i) => {
+                        const date = subDays(new Date(), 6 - i);
+                        const count = events.filter(e => 
+                          e.type === 'page_view' && 
+                          e.createdAt && 
+                          isSameDay(e.createdAt.toDate(), date)
+                        ).length;
+                        return {
+                          name: format(date, "MMM dd"),
+                          views: count
+                        };
+                      })}
+                    >
+                      <defs>
+                        <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#0d9488" stopOpacity={0.1}/>
+                          <stop offset="95%" stopColor="#0d9488" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis 
+                        dataKey="name" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fill: '#94a3b8', fontSize: 12 }}
+                        dy={10}
+                      />
+                      <YAxis 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fill: '#94a3b8', fontSize: 12 }}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          borderRadius: '12px', 
+                          border: 'none', 
+                          boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                          fontSize: '12px'
+                        }} 
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="views" 
+                        stroke="#0d9488" 
+                        strokeWidth={3}
+                        fillOpacity={1} 
+                        fill="url(#colorViews)" 
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Popular Pages */}
+              <Card className="rounded-2xl border-slate-200">
+                <CardHeader>
+                  <CardTitle className="text-lg font-bold flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5 text-teal-600" />
+                    Popular Pages
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      layout="vertical"
+                      data={Object.entries(
+                        events
+                          .filter(e => e.type === 'page_view')
+                          .reduce((acc, e) => {
+                            acc[e.page] = (acc[e.page] || 0) + 1;
+                            return acc;
+                          }, {} as Record<string, number>)
+                      )
+                        .map(([page, count]) => ({
+                          name: page === "/" ? "Home" : page.replace("/", "").split("/").pop()?.replace("-", " ").toUpperCase() || page,
+                          views: count
+                        }))
+                        .sort((a, b) => b.views - a.views)
+                        .slice(0, 5)}
+                      margin={{ left: 40 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                      <XAxis type="number" hide />
+                      <YAxis 
+                        dataKey="name" 
+                        type="category" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fill: '#475569', fontSize: 11, fontWeight: 600 }}
+                        width={100}
+                      />
+                      <Tooltip 
+                        cursor={{ fill: '#f8fafc' }}
+                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                      />
+                      <Bar dataKey="views" fill="#0d9488" radius={[0, 4, 4, 0]} barSize={20} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              {/* Conversion Summary */}
+              <Card className="rounded-2xl border-slate-200">
+                <CardHeader>
+                  <CardTitle className="text-lg font-bold flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-teal-600" />
+                    Conversion Summary
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <p className="text-sm font-bold text-slate-900">Booking Conversion Rate</p>
+                        <p className="text-xs text-slate-500">Bookings vs. Unique Sessions</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xl font-bold text-teal-600">
+                          {events.length > 0 
+                            ? ((bookings.length / Math.max(1, new Set(events.map(e => e.sessionId)).size)) * 100).toFixed(1)
+                            : 0}%
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                      <div 
+                        className="bg-teal-500 h-full transition-all duration-1000" 
+                        style={{ width: `${Math.min(100, (bookings.length / Math.max(1, new Set(events.map(e => e.sessionId)).size)) * 100)}%` }}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 pt-4">
+                      <div className="p-4 bg-teal-50 rounded-2xl border border-teal-100">
+                        <p className="text-[10px] uppercase font-bold text-teal-600 mb-1">Total Sessions</p>
+                        <p className="text-xl font-bold text-teal-900">{new Set(events.map(e => e.sessionId)).size}</p>
+                      </div>
+                      <div className="p-4 bg-sky-50 rounded-2xl border border-sky-100">
+                        <p className="text-[10px] uppercase font-bold text-sky-600 mb-1">Total Page Views</p>
+                        <p className="text-xl font-bold text-sky-900">{events.filter(e => e.type === 'page_view').length}</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
         </Tabs>
 

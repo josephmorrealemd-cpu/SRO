@@ -27,6 +27,20 @@ service cloud.firestore {
     //   - role: string (required, 'admin' | 'client')
     //   - email: string (required, valid email)
     //
+    // Collection: analytics_events
+    // Fields:
+    //   - type: string (required, 'page_view' | 'click' | 'ai_interaction')
+    //   - page: string (required)
+    //   - element: string (optional)
+    //   - sessionId: string (required)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: active_sessions
+    // Fields:
+    //   - sessionId: string (required)
+    //   - lastActive: timestamp (required)
+    //   - page: string (required)
+    //
     // ===============================================================
 
     // ===============================================================
@@ -82,6 +96,24 @@ service cloud.firestore {
         (!('phone' in data) || (data.phone is string && data.phone.size() >= 7 && data.phone.size() <= 20));
     }
 
+    function isValidAnalyticsEvent(data) {
+      return data.keys().hasAll(['type', 'page', 'sessionId', 'createdAt']) &&
+        data.keys().hasOnly(['type', 'page', 'element', 'sessionId', 'createdAt']) &&
+        data.type in ['page_view', 'click', 'ai_interaction'] &&
+        data.page is string && data.page.size() >= 1 && data.page.size() <= 500 &&
+        data.sessionId is string && data.sessionId.size() >= 1 && data.sessionId.size() <= 100 &&
+        data.createdAt is timestamp &&
+        (!('element' in data) || (data.element is string && data.element.size() <= 500));
+    }
+
+    function isValidActiveSession(data) {
+      return data.keys().hasAll(['sessionId', 'lastActive', 'page']) &&
+        data.keys().hasOnly(['sessionId', 'lastActive', 'page']) &&
+        data.sessionId is string && data.sessionId.size() >= 1 && data.sessionId.size() <= 100 &&
+        data.lastActive is timestamp &&
+        data.page is string && data.page.size() >= 1 && data.page.size() <= 500;
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -106,6 +138,18 @@ service cloud.firestore {
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
       allow create: if isAuthenticated() && (request.auth.uid == userId && request.resource.data.role == 'client') || isAdmin();
       allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /analytics_events/{eventId} {
+      allow read: if isAdmin();
+      allow create: if isValidAnalyticsEvent(request.resource.data);
+      allow update, delete: if false;
+    }
+
+    match /active_sessions/{sessionId} {
+      allow read: if isAdmin();
+      allow create, update: if isValidActiveSession(request.resource.data);
       allow delete: if isAdmin();
     }
 

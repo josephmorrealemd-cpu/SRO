@@ -18,10 +18,35 @@ import ImageGenerator from "./pages/ImageGenerator";
 import AdminDashboard from "./components/AdminDashboard";
 import { Toaster } from "@/components/ui/sonner";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
+import { useEffect } from "react";
+import { useLocation } from "react-router-dom";
+import { trackEvent, updateHeartbeat } from "./lib/analytics";
+
+function AnalyticsTracker() {
+  const location = useLocation();
+
+  useEffect(() => {
+    // Track page view
+    trackEvent('page_view', location.pathname);
+    
+    // Initial heartbeat
+    updateHeartbeat(location.pathname);
+
+    // Set up heartbeat interval (every 30 seconds)
+    const interval = setInterval(() => {
+      updateHeartbeat(location.pathname);
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [location.pathname]);
+
+  return null;
+}
 
 export default function App() {
   return (
     <BrowserRouter>
+      <AnalyticsTracker />
       <Routes>
         {/* Public Routes */}
         <Route element={<Layout />}>
