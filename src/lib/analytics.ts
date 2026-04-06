@@ -5,13 +5,18 @@ const SESSION_ID = Math.random().toString(36).substring(2, 15) + Math.random().t
 
 export const trackEvent = async (type: 'page_view' | 'click' | 'ai_interaction', page: string, element?: string) => {
   try {
-    await addDoc(collection(db, "analytics_events"), {
+    const eventData: any = {
       type,
       page,
-      element: element || null,
       sessionId: SESSION_ID,
       createdAt: serverTimestamp()
-    });
+    };
+    
+    if (element) {
+      eventData.element = element;
+    }
+
+    await addDoc(collection(db, "analytics_events"), eventData);
   } catch (error) {
     console.error("Error tracking event:", error);
   }

@@ -103,7 +103,7 @@ service cloud.firestore {
         data.page is string && data.page.size() >= 1 && data.page.size() <= 500 &&
         data.sessionId is string && data.sessionId.size() >= 1 && data.sessionId.size() <= 100 &&
         data.createdAt is timestamp &&
-        (!('element' in data) || (data.element is string && data.element.size() <= 500));
+        (!('element' in data) || data.element == null || (data.element is string && data.element.size() <= 500));
     }
 
     function isValidActiveSession(data) {

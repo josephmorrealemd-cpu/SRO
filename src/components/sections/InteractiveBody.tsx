@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Info, X, Activity, ChevronRight, Sparkles, RefreshCw } from "lucide-react";
 import { GoogleGenAI } from "@google/genai";
 import { BookingDialog } from "../ui/BookingDialog";
+import { toast } from "sonner";
 
 interface BodyPart {
   id: string;
@@ -88,13 +89,14 @@ export default function InteractiveBody() {
   const generateHologram = async () => {
     setIsGenerating(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const apiKey = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
+      const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-image",
         contents: {
           parts: [
             {
-              text: "A high-tech, medical-grade holographic render of a full human body anatomy in a standing pose, showing the entire skeletal structure and all major joints from head to toe. The visualization must show the full length of the body, not just a specific organ or the head. The style is futuristic, glowing teal and cyan neon lines on a dark background, semi-transparent, cinematic lighting, professional medical visualization, 8k resolution.",
+              text: "A high-tech, medical-grade holographic render of a FULL HUMAN BODY anatomy in a standing pose, showing the entire skeletal structure and all major joints from head to toe. CRITICAL: The visualization MUST show the full length of the body (head, torso, arms, and legs), NOT just a specific organ like a heart or a brain. The style is futuristic, glowing teal and cyan neon lines on a dark background, semi-transparent, cinematic lighting, professional medical visualization, 8k resolution.",
             },
           ],
         },
@@ -114,8 +116,9 @@ export default function InteractiveBody() {
       }
     } catch (error) {
       console.error("Failed to generate hologram:", error);
+      toast.error("AI Generation failed. Using high-quality fallback anatomy.");
       // Fallback to a better Unsplash image if generation fails (full body skeleton)
-      setHologramUrl("https://images.unsplash.com/photo-1530026405186-ed1f139313f8?auto=format&fit=crop&q=80&w=800");
+      setHologramUrl("https://images.unsplash.com/photo-1581594693702-fbdc51b2763b?auto=format&fit=crop&q=80&w=800");
     } finally {
       setIsGenerating(false);
     }
@@ -201,10 +204,13 @@ export default function InteractiveBody() {
             <button 
               onClick={generateHologram}
               disabled={isGenerating}
-              className="absolute bottom-8 right-8 p-3 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full text-teal-400 transition-all border border-white/10 z-30 disabled:opacity-50"
+              className="absolute bottom-8 right-8 flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full text-teal-400 transition-all border border-white/10 z-30 disabled:opacity-50 group/refresh"
               title="Regenerate Hologram"
             >
-              <RefreshCw className={`w-5 h-5 ${isGenerating ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-4 h-4 ${isGenerating ? 'animate-spin' : ''}`} />
+              <span className="text-[10px] font-bold uppercase tracking-widest opacity-0 group-hover/refresh:opacity-100 transition-opacity whitespace-nowrap">
+                Regenerate
+              </span>
             </button>
 
             {/* Hotspots */}
