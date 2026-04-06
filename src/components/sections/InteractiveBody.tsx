@@ -83,7 +83,7 @@ const BODY_PARTS: BodyPart[] = [
 
 export default function InteractiveBody() {
   const [selectedPart, setSelectedPart] = useState<BodyPart | null>(null);
-  const [hologramUrl, setHologramUrl] = useState<string | null>(null);
+  const [hologramUrl, setHologramUrl] = useState<string>("https://images.unsplash.com/photo-1581594693702-fbdc51b2763b?auto=format&fit=crop&q=80&w=800");
   const [isGenerating, setIsGenerating] = useState(false);
 
   const generateHologram = async () => {
@@ -114,19 +114,25 @@ export default function InteractiveBody() {
           break;
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to generate hologram:", error);
-      toast.error("AI Generation failed. Using high-quality fallback anatomy.");
-      // Fallback to a better Unsplash image if generation fails (full body skeleton)
+      
+      // Check for quota exceeded (429)
+      if (error?.message?.includes("429") || error?.message?.includes("quota")) {
+        toast.error("AI Quota exceeded for today. Using professional static anatomy.");
+      } else {
+        toast.error("AI Generation failed. Using professional static anatomy.");
+      }
+      
+      // Keep the current fallback if generation fails
       setHologramUrl("https://images.unsplash.com/photo-1581594693702-fbdc51b2763b?auto=format&fit=crop&q=80&w=800");
     } finally {
       setIsGenerating(false);
     }
   };
 
-  useEffect(() => {
-    generateHologram();
-  }, []);
+  // Removed useEffect to prevent automatic AI generation on every page load
+  // This saves your Gemini API quota (Option B)
 
   return (
     <section id="interactive-body" className="py-24 bg-slate-50 overflow-hidden">
