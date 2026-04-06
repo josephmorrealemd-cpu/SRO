@@ -1,0 +1,14 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /reports/{allPaths=**} {
+      // Allow anyone to upload reports (for patient convenience)
+      allow create: if request.resource.size < 5 * 1024 * 1024 // 5MB limit
+                   && request.resource.contentType.matches('image/.*|application/pdf|application/msword|application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      
+      // Only admins can read/list/delete reports
+      allow read, list, delete: if request.auth != null && 
+        (request.auth.token.email == "josephmorrealemd@gmail.com" || request.auth.token.email == "team@watch1do1.com");
+    }
+  }
+}
