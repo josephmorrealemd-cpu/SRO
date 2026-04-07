@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Info, X, Activity, ChevronRight, Sparkles, RefreshCw } from "lucide-react";
 import { GoogleGenAI } from "@google/genai";
@@ -87,6 +87,12 @@ export default function InteractiveBody() {
   const [selectedPart, setSelectedPart] = useState<BodyPart | null>(null);
   const [hologramUrl, setHologramUrl] = useState<string>("https://images.unsplash.com/photo-1583912267550-d44d7a125821?auto=format&fit=crop&q=80&w=800");
   const [isGenerating, setIsGenerating] = useState(false);
+  const isGeneratingRef = useRef(false);
+  const hasAttemptedRefresh = useRef(false);
+
+  useEffect(() => {
+    isGeneratingRef.current = isGenerating;
+  }, [isGenerating]);
 
   useEffect(() => {
     // Listen to the global app state for the daily hologram
@@ -99,31 +105,44 @@ export default function InteractiveBody() {
 
         // Lazy refresh logic: if last update was yesterday or earlier
         const lastUpdate = data.lastHologramUpdate?.toDate();
+        const lastAttempt = data.lastAttemptAt?.toDate();
+        const now = new Date();
+
         if (lastUpdate) {
-          const now = new Date();
           const isStale = lastUpdate.getDate() !== now.getDate() || 
                           lastUpdate.getMonth() !== now.getMonth() || 
                           lastUpdate.getFullYear() !== now.getFullYear();
           
-          if (isStale && !isGenerating) {
-            console.log("Hologram is stale, triggering daily refresh...");
+          // Only attempt if it's stale AND we haven't tried in the last 4 hours
+          const coolDownPeriod = 4 * 60 * 60 * 1000; // 4 hours
+          const isCoolDownOver = !lastAttempt || (now.getTime() - lastAttempt.getTime()) > coolDownPeriod;
+
+          if (isStale && isCoolDownOver && !isGeneratingRef.current && !hasAttemptedRefresh.current) {
+            console.log("Hologram is stale and cooldown is over, triggering daily refresh...");
+            hasAttemptedRefresh.current = true;
             generateHologram();
           }
         }
       } else {
         // If no hologram exists at all, generate the first one
-        if (!isGenerating) {
+        if (!isGeneratingRef.current && !hasAttemptedRefresh.current) {
+          hasAttemptedRefresh.current = true;
           generateHologram();
         }
       }
     });
 
     return () => unsubscribe();
-  }, [isGenerating]);
+  }, []); // Empty dependency array to prevent loop
 
   const generateHologram = async () => {
     setIsGenerating(true);
     try {
+      // Mark the attempt in Firestore immediately to prevent other users from trying
+      await setDoc(doc(db, "app_state", "hologram"), {
+        lastAttemptAt: serverTimestamp()
+      }, { merge: true });
+
       const apiKey = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
       const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({

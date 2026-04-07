@@ -122,7 +122,8 @@
       "type": "object",
       "properties": {
         "hologramUrl": { "type": "string", "description": "The current daily hologram image URL." },
-        "lastHologramUpdate": { "type": "string", "format": "date-time", "description": "When the hologram was last updated." }
+        "lastHologramUpdate": { "type": "string", "format": "date-time", "description": "When the hologram was last updated." },
+        "lastAttemptAt": { "type": "string", "format": "date-time", "description": "When the last AI generation attempt occurred." }
       },
       "required": ["hologramUrl", "lastHologramUpdate"]
     }

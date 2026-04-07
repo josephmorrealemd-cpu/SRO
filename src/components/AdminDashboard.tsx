@@ -138,7 +138,7 @@ export default function AdminDashboard() {
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: string, id: string } | null>(null);
   
   // Hologram State
-  const [currentHologram, setCurrentHologram] = useState<{ url: string, lastUpdated: any } | null>(null);
+  const [currentHologram, setCurrentHologram] = useState<{ url: string, lastUpdated: any, lastAttempt: any } | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
   const handlePrint = (data: Booking | ContactMessage, type: 'booking' | 'message') => {
@@ -244,7 +244,8 @@ export default function AdminDashboard() {
         const data = snapshot.data();
         setCurrentHologram({
           url: data.hologramUrl,
-          lastUpdated: data.lastHologramUpdate
+          lastUpdated: data.lastHologramUpdate,
+          lastAttempt: data.lastAttemptAt
         });
       }
     });
@@ -956,11 +957,19 @@ export default function AdminDashboard() {
                   
                   <div className="mt-8 p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
                     <div className="flex justify-between text-xs">
-                      <span className="text-slate-500">Last Updated:</span>
+                      <span className="text-slate-500">Last Successful Update:</span>
                       <span className="font-bold text-slate-900">
                         {currentHologram?.lastUpdated 
                           ? currentHologram.lastUpdated.toDate().toLocaleString() 
                           : "Never"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Last AI Attempt:</span>
+                      <span className="font-bold text-slate-900">
+                        {currentHologram?.lastAttempt 
+                          ? currentHologram.lastAttempt.toDate().toLocaleString() 
+                          : "None"}
                       </span>
                     </div>
                     <div className="flex justify-between text-xs">
