@@ -1,5 +1,6 @@
 import * as React from "react";
 import { useState, useEffect } from "react";
+import { motion } from "motion/react";
 import { 
   collection, 
   query, 
@@ -8,7 +9,8 @@ import {
   Timestamp,
   deleteDoc,
   doc,
-  updateDoc
+  updateDoc,
+  serverTimestamp
 } from "firebase/firestore";
 import { db, auth, handleFirestoreError, OperationType } from "@/lib/firebase";
 import { 
@@ -62,7 +64,9 @@ import {
   BarChart3,
   Activity,
   TrendingUp,
-  Clock
+  Clock,
+  Sparkles,
+  RefreshCw
 } from "lucide-react";
 import { toast } from "sonner";
 import { 
@@ -80,6 +84,7 @@ import {
   Pie
 } from "recharts";
 import { format, subDays, isSameDay, startOfDay } from "date-fns";
+import { GoogleGenAI } from "@google/genai";
 
 interface Booking {
   id: string;
@@ -131,6 +136,10 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("bookings");
   const [selectedMessage, setSelectedMessage] = useState<ContactMessage | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: string, id: string } | null>(null);
+  
+  // Hologram State
+  const [currentHologram, setCurrentHologram] = useState<{ url: string, lastUpdated: any } | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   const handlePrint = (data: Booking | ContactMessage, type: 'booking' | 'message') => {
     const printWindow = window.open('', '_blank');
@@ -230,11 +239,22 @@ export default function AdminDashboard() {
       setActiveSessions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ActiveSession)));
     }, (error) => handleFirestoreError(error, OperationType.LIST, "active_sessions"));
 
+    const unsubH = onSnapshot(doc(db, "app_state", "hologram"), (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        setCurrentHologram({
+          url: data.hologramUrl,
+          lastUpdated: data.lastHologramUpdate
+        });
+      }
+    });
+
     return () => {
       unsubB();
       unsubM();
       unsubE();
       unsubS();
+      unsubH();
     };
   }, [isAdmin]);
 
@@ -275,6 +295,65 @@ export default function AdminDashboard() {
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, "bookings");
       toast.error("Failed to update status");
+    }
+  };
+
+  const generateHologram = async () => {
+    setIsGenerating(true);
+    try {
+      const apiKey = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-image",
+        contents: {
+          parts: [
+            {
+              text: "A high-tech, medical-grade holographic render of a FULL HUMAN BODY anatomy in a standing pose, showing the entire skeletal structure and all major joints from head to toe. CRITICAL: The visualization MUST show the full length of the body (head, torso, arms, and legs), NOT just a specific organ like a heart or a brain. The style is futuristic, glowing teal and cyan neon lines on a dark background, semi-transparent, cinematic lighting, professional medical visualization, 8k resolution.",
+            },
+          ],
+        },
+        config: {
+          imageConfig: {
+            aspectRatio: "9:16",
+          },
+        },
+      });
+
+      let newUrl = "";
+      for (const part of response.candidates?.[0]?.content?.parts || []) {
+        if (part.inlineData) {
+          const base64Data = part.inlineData.data;
+          newUrl = `data:image/png;base64,${base64Data}`;
+          break;
+        }
+      }
+
+      if (newUrl) {
+        // Use a try-catch for the setDoc to ensure we handle errors
+        try {
+          // We use setDoc with merge: true to create or update the document
+          const { setDoc } = await import("firebase/firestore");
+          await setDoc(doc(db, "app_state", "hologram"), {
+            hologramUrl: newUrl,
+            lastHologramUpdate: serverTimestamp()
+          }, { merge: true });
+          toast.success("Daily hologram updated successfully");
+        } catch (dbError) {
+          console.error("Error saving to Firestore:", dbError);
+          toast.error("Hologram generated but failed to save to database.");
+        }
+      } else {
+        toast.error("AI failed to return an image.");
+      }
+    } catch (error: any) {
+      console.error("Failed to generate hologram:", error);
+      if (error?.message?.includes("429") || error?.message?.includes("quota")) {
+        toast.error("AI Quota exceeded for today.");
+      } else {
+        toast.error("AI Generation failed.");
+      }
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -425,6 +504,9 @@ export default function AdminDashboard() {
               </TabsTrigger>
               <TabsTrigger value="analytics" className="rounded-lg px-6 data-[state=active]:bg-slate-900 data-[state=active]:text-white">
                 Analytics
+              </TabsTrigger>
+              <TabsTrigger value="hologram" className="rounded-lg px-6 data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+                Hologram
               </TabsTrigger>
             </TabsList>
 
@@ -830,6 +912,117 @@ export default function AdminDashboard() {
                         <p className="text-[10px] uppercase font-bold text-sky-600 mb-1">Total Page Views</p>
                         <p className="text-xl font-bold text-sky-900">{events.filter(e => e.type === 'page_view').length}</p>
                       </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="hologram">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <Card className="rounded-2xl border-slate-200 overflow-hidden">
+                <CardHeader className="border-b border-slate-100 bg-slate-50/50">
+                  <CardTitle className="text-lg font-bold flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-teal-600" />
+                    Current Daily Hologram
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-8">
+                  <div className="aspect-[9/16] max-w-[300px] mx-auto bg-slate-950 rounded-3xl border border-slate-800 relative overflow-hidden flex items-center justify-center shadow-2xl">
+                    {currentHologram?.url ? (
+                      <img 
+                        src={currentHologram.url} 
+                        alt="Current Daily Hologram" 
+                        className="w-full h-full object-contain opacity-90"
+                        style={{ 
+                          filter: 'hue-rotate(160deg) brightness(1.2) contrast(1.1) drop-shadow(0 0 15px rgba(20, 184, 166, 0.4))',
+                        }}
+                      />
+                    ) : (
+                      <div className="text-slate-500 text-center p-8">
+                        <Activity className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                        <p className="text-sm">No hologram generated yet.</p>
+                      </div>
+                    )}
+                    
+                    {/* Scanning Line Animation */}
+                    <motion.div 
+                      animate={{ top: ["-10%", "110%"] }}
+                      transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                      className="absolute left-0 right-0 h-[2px] bg-teal-400/60 shadow-[0_0_20px_rgba(45,212,191,0.8)] z-10 pointer-events-none"
+                    />
+                  </div>
+                  
+                  <div className="mt-8 p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Last Updated:</span>
+                      <span className="font-bold text-slate-900">
+                        {currentHologram?.lastUpdated 
+                          ? currentHologram.lastUpdated.toDate().toLocaleString() 
+                          : "Never"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Status:</span>
+                      <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 h-5 text-[10px]">
+                        ACTIVE
+                      </Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl border-slate-200">
+                <CardHeader>
+                  <CardTitle className="text-lg font-bold flex items-center gap-2">
+                    <RefreshCw className="w-5 h-5 text-teal-600" />
+                    Hologram Controls
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="p-6 bg-teal-50 rounded-2xl border border-teal-100 space-y-4">
+                    <h4 className="font-bold text-teal-900">Manual Regeneration</h4>
+                    <p className="text-sm text-teal-700 leading-relaxed">
+                      If the current AI-generated image is incorrect or low quality, you can manually trigger a new generation. This will update the image for all patients immediately.
+                    </p>
+                    <Button 
+                      onClick={generateHologram} 
+                      disabled={isGenerating}
+                      className="w-full bg-teal-600 hover:bg-teal-700 text-white rounded-xl h-12 font-bold shadow-lg shadow-teal-600/20"
+                    >
+                      {isGenerating ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                          Generating New Hologram...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Regenerate Daily Hologram
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                    <h4 className="font-bold text-slate-900">Automation Settings</h4>
+                    <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-200">
+                      <div className="space-y-1">
+                        <p className="text-sm font-bold text-slate-900">Daily Refresh</p>
+                        <p className="text-xs text-slate-500">Automatically refresh at midnight</p>
+                      </div>
+                      <Badge className="bg-teal-500 text-white">ENABLED</Badge>
+                    </div>
+                    <p className="text-[10px] text-slate-400 italic">
+                      Note: Daily refresh is handled by the first visitor of the day to optimize API costs.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h5 className="text-xs font-bold text-slate-400 uppercase tracking-widest">AI Prompt Context</h5>
+                    <div className="p-4 bg-slate-900 rounded-xl text-[11px] font-mono text-teal-400/80 leading-relaxed">
+                      "A high-tech, medical-grade holographic render of a FULL HUMAN BODY anatomy... futuristic, glowing teal and cyan neon lines on a dark background..."
                     </div>
                   </div>
                 </CardContent>

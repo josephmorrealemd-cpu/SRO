@@ -51,6 +51,10 @@
     "active_sessions": {
       "schema": "ActiveSession",
       "description": "Collection of currently active user sessions."
+    },
+    "app_state": {
+      "schema": "AppState",
+      "description": "Global application state settings."
     }
   },
   "entities": {
@@ -111,6 +115,16 @@
         "page": { "type": "string" }
       },
       "required": ["sessionId", "lastActive", "page"]
+    },
+    "AppState": {
+      "title": "AppState",
+      "description": "Global application state settings.",
+      "type": "object",
+      "properties": {
+        "hologramUrl": { "type": "string", "description": "The current daily hologram image URL." },
+        "lastHologramUpdate": { "type": "string", "format": "date-time", "description": "When the hologram was last updated." }
+      },
+      "required": ["hologramUrl", "lastHologramUpdate"]
     }
   }
 }

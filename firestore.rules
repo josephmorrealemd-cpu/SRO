@@ -152,6 +152,11 @@ service cloud.firestore {
       allow create, update: if isValidActiveSession(request.resource.data);
       allow delete: if isAdmin();
     }
+    
+    match /app_state/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
 
     // Default deny
     match /{document=**} {

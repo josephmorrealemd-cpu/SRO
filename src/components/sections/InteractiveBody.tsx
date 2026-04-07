@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Info, X, Activity, ChevronRight, Sparkles, RefreshCw } from "lucide-react";
 import { GoogleGenAI } from "@google/genai";
+import { collection, doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase";
 import { BookingDialog } from "../ui/BookingDialog";
 import { toast } from "sonner";
 
@@ -86,6 +88,39 @@ export default function InteractiveBody() {
   const [hologramUrl, setHologramUrl] = useState<string>("https://images.unsplash.com/photo-1583912267550-d44d7a125821?auto=format&fit=crop&q=80&w=800");
   const [isGenerating, setIsGenerating] = useState(false);
 
+  useEffect(() => {
+    // Listen to the global app state for the daily hologram
+    const unsubscribe = onSnapshot(doc(db, "app_state", "hologram"), (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        if (data.hologramUrl) {
+          setHologramUrl(data.hologramUrl);
+        }
+
+        // Lazy refresh logic: if last update was yesterday or earlier
+        const lastUpdate = data.lastHologramUpdate?.toDate();
+        if (lastUpdate) {
+          const now = new Date();
+          const isStale = lastUpdate.getDate() !== now.getDate() || 
+                          lastUpdate.getMonth() !== now.getMonth() || 
+                          lastUpdate.getFullYear() !== now.getFullYear();
+          
+          if (isStale && !isGenerating) {
+            console.log("Hologram is stale, triggering daily refresh...");
+            generateHologram();
+          }
+        }
+      } else {
+        // If no hologram exists at all, generate the first one
+        if (!isGenerating) {
+          generateHologram();
+        }
+      }
+    });
+
+    return () => unsubscribe();
+  }, [isGenerating]);
+
   const generateHologram = async () => {
     setIsGenerating(true);
     try {
@@ -110,7 +145,18 @@ export default function InteractiveBody() {
       for (const part of response.candidates?.[0]?.content?.parts || []) {
         if (part.inlineData) {
           const base64Data = part.inlineData.data;
-          setHologramUrl(`data:image/png;base64,${base64Data}`);
+          const newUrl = `data:image/png;base64,${base64Data}`;
+          setHologramUrl(newUrl);
+          
+          // Save to global app state so all users see the same daily image
+          try {
+            await setDoc(doc(db, "app_state", "hologram"), {
+              hologramUrl: newUrl,
+              lastHologramUpdate: serverTimestamp()
+            }, { merge: true });
+          } catch (dbError) {
+            console.error("Failed to save global hologram state:", dbError);
+          }
           break;
         }
       }
@@ -205,19 +251,6 @@ export default function InteractiveBody() {
                 transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
               />
             </div>
-
-            {/* Regenerate Button */}
-            <button 
-              onClick={generateHologram}
-              disabled={isGenerating}
-              className="absolute bottom-8 right-8 flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full text-teal-400 transition-all border border-white/10 z-30 disabled:opacity-50 group/refresh"
-              title="Regenerate Hologram"
-            >
-              <RefreshCw className={`w-4 h-4 ${isGenerating ? 'animate-spin' : ''}`} />
-              <span className="text-[10px] font-bold uppercase tracking-widest opacity-0 group-hover/refresh:opacity-100 transition-opacity whitespace-nowrap">
-                Regenerate
-              </span>
-            </button>
 
             {/* Hotspots */}
             {BODY_PARTS.map((part) => (
