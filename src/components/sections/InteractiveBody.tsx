@@ -83,7 +83,7 @@ const BODY_PARTS: BodyPart[] = [
 
 export default function InteractiveBody() {
   const [selectedPart, setSelectedPart] = useState<BodyPart | null>(null);
-  const [hologramUrl, setHologramUrl] = useState<string>("https://images.unsplash.com/photo-1530026405186-ed1f139313f8?auto=format&fit=crop&q=80&w=800");
+  const [hologramUrl, setHologramUrl] = useState<string>("https://images.unsplash.com/photo-1583912267550-d44d7a125821?auto=format&fit=crop&q=80&w=800");
   const [isGenerating, setIsGenerating] = useState(false);
 
   const generateHologram = async () => {
@@ -125,7 +125,7 @@ export default function InteractiveBody() {
       }
       
       // Keep the current fallback if generation fails
-      setHologramUrl("https://images.unsplash.com/photo-1530026405186-ed1f139313f8?auto=format&fit=crop&q=80&w=800");
+      setHologramUrl("https://images.unsplash.com/photo-1583912267550-d44d7a125821?auto=format&fit=crop&q=80&w=800");
     } finally {
       setIsGenerating(false);
     }
@@ -181,7 +181,7 @@ export default function InteractiveBody() {
                 ) : (
                   <motion.img 
                     key="hologram"
-                    src={hologramUrl || "https://images.unsplash.com/photo-1530026405186-ed1f139313f8?auto=format&fit=crop&q=80&w=800"} 
+                    src={hologramUrl || "https://images.unsplash.com/photo-1583912267550-d44d7a125821?auto=format&fit=crop&q=80&w=800"} 
                     alt="Holographic Human Anatomy" 
                     className="w-full h-full object-contain opacity-90"
                     initial={{ opacity: 0, scale: 0.9 }}
