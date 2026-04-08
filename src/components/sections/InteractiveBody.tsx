@@ -143,8 +143,7 @@ export default function InteractiveBody() {
         lastAttemptAt: serverTimestamp()
       }, { merge: true });
 
-      const apiKey = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
-      const ai = new GoogleGenAI({ apiKey });
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-image",
         contents: {
@@ -184,7 +183,7 @@ export default function InteractiveBody() {
       
       // Check for quota exceeded (429)
       if (error?.message?.includes("429") || error?.message?.includes("quota")) {
-        toast.error("AI Quota exceeded for today. Using professional static anatomy.");
+        toast.error("AI Quota exceeded. Please ensure your Google Cloud billing account is activated as per the email you received.");
       } else {
         toast.error("AI Generation failed. Using professional static anatomy.");
       }

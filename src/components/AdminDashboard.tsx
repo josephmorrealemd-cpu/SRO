@@ -302,8 +302,7 @@ export default function AdminDashboard() {
   const generateHologram = async () => {
     setIsGenerating(true);
     try {
-      const apiKey = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
-      const ai = new GoogleGenAI({ apiKey });
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
       const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-image",
         contents: {
@@ -349,7 +348,7 @@ export default function AdminDashboard() {
     } catch (error: any) {
       console.error("Failed to generate hologram:", error);
       if (error?.message?.includes("429") || error?.message?.includes("quota")) {
-        toast.error("AI Quota exceeded for today.");
+        toast.error("AI Quota exceeded. Please activate your Google Cloud billing account as per the email from Google AI Studio.");
       } else {
         toast.error("AI Generation failed.");
       }
