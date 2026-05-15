@@ -13,6 +13,7 @@ import {
   Calculator
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
+import { BookingDialog } from "./ui/BookingDialog";
 
 enum UnitSystem {
   METRIC = 'metric',
@@ -260,21 +261,18 @@ export default function BMICalculator() {
                     animate={{ opacity: 1, y: 0 }}
                     className="pt-2"
                   >
-                    <Button 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        const el = document.getElementById('contact');
-                        if (el) {
-                          el.scrollIntoView({ behavior: 'smooth' });
-                        } else {
-                          navigate('/contact');
-                        }
-                      }}
-                      className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl h-10 text-xs shadow-lg shadow-rose-600/20 group"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5 mr-2 group-hover:animate-bounce" />
-                      Get Help Now
-                    </Button>
+                    <BookingDialog 
+                      title="Medical Weight Loss Consultation"
+                      description="Our clinical team specializes in GLP-1 and metabolic support to reduce joint loading. Fill out the form below to get started."
+                      trigger={
+                        <Button 
+                          className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl h-10 text-xs shadow-lg shadow-rose-600/20 group"
+                        >
+                          <MessageSquare className="w-3.5 h-3.5 mr-2 group-hover:animate-bounce" />
+                          Get Help Now
+                        </Button>
+                      }
+                    />
                     <p className="text-[9px] text-rose-300 mt-1 font-medium italic">BMI &gt; 30 increases joint damage risk.</p>
                   </motion.div>
                 )}
