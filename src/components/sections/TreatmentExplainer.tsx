@@ -3,7 +3,9 @@ import { motion, AnimatePresence } from "motion/react";
 import { TREATMENTS, Treatment } from "@/types";
 import { CheckCircle2, ArrowRight, PlayCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { TreatmentDetailDialog } from "@/components/ui/TreatmentDetailDialog";
+import BMICalculator from "@/components/BMICalculator";
 
 export default function TreatmentExplainer() {
   const [selectedId, setSelectedId] = useState<string>(TREATMENTS[0].id);
@@ -55,7 +57,7 @@ export default function TreatmentExplainer() {
                 transition={{ duration: 0.4 }}
                 className="bg-slate-50 rounded-3xl p-8 lg:p-12 border border-slate-100"
               >
-                <div className="grid md:grid-cols-2 gap-12">
+                <div className={`${activeTreatment.id === 'glp1' || activeTreatment.id === 'trt' ? 'space-y-12' : 'grid md:grid-cols-2 gap-12'}`}>
                   <div className="space-y-8">
                     <div className="space-y-4">
                       <Badge variant="outline" className="text-teal-600 border-teal-200 bg-teal-50">Treatment Overview</Badge>
@@ -86,27 +88,59 @@ export default function TreatmentExplainer() {
                         </button>
                       }
                     />
+
+                    {activeTreatment.id === 'peptides' && (
+                      <div className="pt-4">
+                        <Button 
+                          variant="outline"
+                          className="border-teal-600 text-teal-600 hover:bg-teal-600 hover:text-white rounded-xl font-bold"
+                          onClick={() => document.getElementById('peptides-detail')?.scrollIntoView({ behavior: 'smooth' })}
+                        >
+                          Explore Specific Formulas
+                        </Button>
+                      </div>
+                    )}
+
+                    {(activeTreatment.id === 'glp1' || activeTreatment.id === 'trt') && (
+                      <div className="pt-4">
+                        <Button 
+                          variant="outline"
+                          className="border-teal-600 text-teal-600 hover:bg-teal-600 hover:text-white rounded-xl font-bold"
+                          onClick={() => document.getElementById('metabolic')?.scrollIntoView({ behavior: 'smooth' })}
+                        >
+                          View Metabolic Integration
+                        </Button>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="relative group cursor-pointer">
-                    <div className="aspect-[4/5] rounded-2xl overflow-hidden shadow-xl">
-                      <img 
-                        src={`https://picsum.photos/seed/${activeTreatment.id}/600/800`} 
-                        alt={activeTreatment.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="absolute inset-0 bg-slate-900/20 group-hover:bg-slate-900/10 transition-colors" />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <div className="w-16 h-16 bg-white/90 rounded-full flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform">
-                          <PlayCircle className="w-8 h-8 text-teal-600" />
-                        </div>
+                  <div className="relative group">
+                    {activeTreatment.id === 'glp1' || activeTreatment.id === 'trt' ? (
+                      <div className="w-full">
+                        <BMICalculator />
                       </div>
-                    </div>
-                    <div className="absolute -bottom-4 -left-4 -right-4 bg-white p-4 rounded-xl shadow-lg border border-slate-100 text-center">
-                      <div className="text-xs font-bold text-slate-900">Watch Explainer Animation</div>
-                      <div className="text-[10px] text-slate-500">See how {activeTreatment.name} works in the body</div>
-                    </div>
+                    ) : (
+                      <>
+                        <div className="aspect-[4/5] rounded-2xl overflow-hidden shadow-xl cursor-pointer">
+                          <img 
+                            src={`https://picsum.photos/seed/${activeTreatment.id}/600/800`} 
+                            alt={activeTreatment.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                            referrerPolicy="no-referrer"
+                          />
+                          <div className="absolute inset-0 bg-slate-900/20 group-hover:bg-slate-900/10 transition-colors" />
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="w-16 h-16 bg-white/90 rounded-full flex items-center justify-center shadow-2xl group-hover:scale-110 transition-transform">
+                              <PlayCircle className="w-8 h-8 text-teal-600" />
+                            </div>
+                          </div>
+                        </div>
+                        <div className="absolute -bottom-4 -left-4 -right-4 bg-white p-4 rounded-xl shadow-lg border border-slate-100 text-center">
+                          <div className="text-xs font-bold text-slate-900">Watch Explainer Animation</div>
+                          <div className="text-[10px] text-slate-500">See how {activeTreatment.name} works in the body</div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </motion.div>

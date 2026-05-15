@@ -3,6 +3,7 @@ import Features from "../components/sections/Features";
 import Testimonials from "../components/sections/Testimonials";
 import FAQ from "../components/sections/FAQ";
 import TreatmentQuiz from "../components/sections/TreatmentQuiz";
+import Contact from "../components/sections/Contact";
 import { motion } from "motion/react";
 
 export default function Home() {
@@ -20,6 +21,7 @@ export default function Home() {
         <Testimonials />
       </div>
       <FAQ />
+      <Contact />
     </motion.div>
   );
 }

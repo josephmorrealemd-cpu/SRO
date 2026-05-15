@@ -70,6 +70,22 @@ export const TREATMENTS: Treatment[] = [
     benefits: ["Non-invasive & painless", "Rapid pain reduction", "Accelerates tissue healing", "Reduces swelling"],
     clinicalDetails: "High-Intensity Laser Therapy (HILT) uses specific wavelengths of light to penetrate deep into tissues. This stimulates mitochondrial activity (photobiomodulation), which increases ATP production, reduces pain signaling, and accelerates the resolution of inflammation in acute and chronic injuries.",
     pricingInfo: "Available as individual sessions or discounted multi-session packages. Often used in conjunction with other regenerative therapies."
+  },
+  {
+    id: "glp1",
+    name: "Metabolic Optimization (GLP-1)",
+    description: "Therapeutic weight loss to reduce joint loading and systemic inflammation. Specialized protocols to ensure muscle preservation during weight loss.",
+    benefits: ["Significant fat loss", "Reduced joint loading", "Improved metabolic health", "Anti-inflammatory effects"],
+    clinicalDetails: "GLP-1 receptor agonists (like semaglutide and tirzepatide) are used as powerful tools to achieve healthy body composition. In an orthopedic context, reducing weight significantly lowers the load on knees and hips, potentially delaying or preventing surgery while reducing systemic inflammation.",
+    pricingInfo: "Monthly subscription includes medication, monitoring, and nutritional guidance. Insurance navigation supported."
+  },
+  {
+    id: "trt",
+    name: "Testosterone Replacement (TRT)",
+    description: "Anabolic support to improve muscle mass, bone health, and recovery outcomes. Essential for maintaining independence and strength.",
+    benefits: ["Increased lean mass", "Stronger bone density", "Enhanced surgical recovery", "Improved energy & mood"],
+    clinicalDetails: "Testosterone optimization addresses sarcopenia (muscle loss) and frailty. By improving lean body mass and bone mineral density, TRT provides the anabolic foundation necessary for successful joint rehabilitation and long-term musculoskeletal integrity.",
+    pricingInfo: "Customized protocols following comprehensive labs. Monthly monitoring and treatment plans."
   }
 ];
 

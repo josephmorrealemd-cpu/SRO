@@ -1,6 +1,9 @@
 import TreatmentExplainer from "../components/sections/TreatmentExplainer";
 import ConditionSelector from "../components/sections/ConditionSelector";
 import RecoveryTimeline from "../components/sections/RecoveryTimeline";
+import PeptidesContent from "../components/sections/PeptidesContent";
+import MetabolicSection from "../components/sections/MetabolicSection";
+import Contact from "../components/sections/Contact";
 import { motion } from "motion/react";
 
 export default function TreatmentsPage() {
@@ -19,10 +22,13 @@ export default function TreatmentsPage() {
         </p>
       </div>
       <TreatmentExplainer />
+      <PeptidesContent />
+      <MetabolicSection />
       <RecoveryTimeline />
       <div className="bg-slate-50 py-24">
         <ConditionSelector />
       </div>
+      <Contact />
     </motion.div>
   );
 }
