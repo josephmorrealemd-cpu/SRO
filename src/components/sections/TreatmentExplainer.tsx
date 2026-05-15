@@ -25,9 +25,9 @@ export default function TreatmentExplainer({
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-12 gap-12 items-start">
+        <div className="grid lg:grid-cols-12 gap-12 items-start relative">
           {/* Treatment List */}
-          <div className="lg:col-span-4 space-y-4">
+          <div className="lg:col-span-4 space-y-4 lg:max-h-[calc(100vh-200px)] lg:overflow-y-auto pr-6 custom-scrollbar lg:sticky lg:top-32">
             {TREATMENTS.map((t) => (
               <button
                 key={t.id}
@@ -54,7 +54,7 @@ export default function TreatmentExplainer({
           </div>
 
           {/* Detailed View */}
-          <div id="treatment-detail" className="lg:col-span-8 min-h-[600px] scroll-mt-24">
+          <div id="treatment-detail" className="lg:col-span-8 lg:sticky lg:top-32 min-h-[600px] scroll-mt-24">
             <AnimatePresence mode="wait">
               <motion.div
                 key={selectedId}
