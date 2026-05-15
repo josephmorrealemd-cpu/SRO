@@ -1,10 +1,9 @@
 import { motion, AnimatePresence } from "motion/react";
 import { TREATMENTS, Treatment } from "@/types";
-import { CheckCircle2, ArrowRight, PlayCircle } from "lucide-react";
+import { CheckCircle2, ArrowRight, PlayCircle, Activity } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { TreatmentDetailDialog } from "@/components/ui/TreatmentDetailDialog";
-import BMICalculator from "@/components/BMICalculator";
 
 export default function TreatmentExplainer({ 
   selectedId, 
@@ -112,8 +111,36 @@ export default function TreatmentExplainer({
 
                   <div className="relative group">
                     {activeTreatment.id === 'glp1' || activeTreatment.id === 'trt' ? (
-                      <div className="w-full">
-                        <BMICalculator />
+                      <div className="space-y-6">
+                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                          <h5 className="font-bold mb-4 flex items-center gap-2">
+                            <Activity className="w-5 h-5 text-teal-600" />
+                            {activeTreatment.id === 'glp1' ? 'Joint Load Assessment' : 'Hormonal Foundation'}
+                          </h5>
+                          <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+                            {activeTreatment.id === 'glp1' 
+                              ? 'Reducing body mass is one of the most effective ways to decompress joints and improve regenerative outcomes.' 
+                              : 'Optimizing testosterone levels is critical for muscle preservation and effective post-injury rehabilitation.'}
+                          </p>
+                          <Button 
+                            className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold h-12 rounded-xl"
+                            onClick={() => {
+                              const targetId = activeTreatment.id === 'glp1' ? 'metabolic' : 'anabolic';
+                              document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth' });
+                            }}
+                          >
+                            Explore {activeTreatment.id === 'glp1' ? 'Metabolic' : 'Anabolic'} Section
+                            <ArrowRight className="w-4 h-4 ml-2" />
+                          </Button>
+                        </div>
+                        {activeTreatment.id === 'glp1' && (
+                          <div className="bg-teal-600 p-6 rounded-2xl text-white shadow-lg shadow-teal-600/20">
+                            <h6 className="font-bold text-sm uppercase tracking-wider mb-2">Did you know?</h6>
+                            <p className="text-xs text-teal-50 opacity-90 leading-relaxed">
+                              Losing just 10% of your body weight can reduce joint pain by up to 50% in many osteoarthritis patients.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <>

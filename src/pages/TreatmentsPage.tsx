@@ -4,6 +4,7 @@ import ConditionSelector from "../components/sections/ConditionSelector";
 import RecoveryTimeline from "../components/sections/RecoveryTimeline";
 import PeptidesContent from "../components/sections/PeptidesContent";
 import MetabolicSection from "../components/sections/MetabolicSection";
+import AnabolicSection from "../components/sections/AnabolicSection";
 import Contact from "../components/sections/Contact";
 import { motion } from "motion/react";
 import { TREATMENTS } from "@/types";
@@ -15,6 +16,20 @@ export default function TreatmentsPage() {
     setSelectedTreatmentId(id);
     if (scroll) {
       setTimeout(() => {
+        // IDs for dedicated sections
+        if (id === "peptides") {
+          document.getElementById('peptides-detail')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return;
+        }
+        if (id === "glp1") {
+          document.getElementById('metabolic')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return;
+        }
+        if (id === "trt") {
+          document.getElementById('anabolic')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          return;
+        }
+
         const el = document.getElementById('treatments');
         if (el) {
           // Check if we are on mobile (less than 1024px for lg breakpoint)
@@ -48,6 +63,7 @@ export default function TreatmentsPage() {
       />
       <PeptidesContent />
       <MetabolicSection />
+      <AnabolicSection />
       <RecoveryTimeline />
       <div className="bg-slate-50 py-24">
         <ConditionSelector onSelectTreatment={handleSelectTreatment} />
