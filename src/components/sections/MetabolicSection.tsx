@@ -10,7 +10,7 @@ import BMICalculator from "@/components/BMICalculator";
 
 export default function MetabolicSection() {
   return (
-    <section id="metabolic" className="py-24 bg-slate-900 text-white overflow-hidden">
+    <section id="metabolic" className="py-24 bg-slate-900 text-white overflow-hidden scroll-mt-20">
       <div className="container mx-auto px-4">
         <div className="max-w-6xl mx-auto space-y-24">
           

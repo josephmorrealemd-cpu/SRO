@@ -13,7 +13,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { BookingDialog } from "../ui/BookingDialog";
 
-export default function ConditionSelector() {
+export default function ConditionSelector({ 
+  onSelectTreatment 
+}: { 
+  onSelectTreatment?: (id: string) => void; 
+}) {
   const [selectedConditionId, setSelectedConditionId] = useState<string>("");
   
   const selectedCondition = CONDITIONS.find(c => c.id === selectedConditionId);
@@ -94,7 +98,13 @@ export default function ConditionSelector() {
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: i * 0.1 }}
                         >
-                          <Card className="overflow-hidden border-slate-200 hover:border-teal-300 transition-colors group cursor-pointer">
+                          <Card 
+                            onClick={(e) => {
+                              e.preventDefault();
+                              onSelectTreatment?.(t.id);
+                            }}
+                            className="overflow-hidden border-slate-200 hover:border-teal-300 transition-colors group cursor-pointer"
+                          >
                             <CardContent className="p-0 flex">
                               <div className="w-24 bg-slate-100 flex items-center justify-center">
                                 <img 

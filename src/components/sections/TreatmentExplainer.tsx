@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { TREATMENTS, Treatment } from "@/types";
 import { CheckCircle2, ArrowRight, PlayCircle } from "lucide-react";
@@ -7,8 +6,13 @@ import { Button } from "@/components/ui/button";
 import { TreatmentDetailDialog } from "@/components/ui/TreatmentDetailDialog";
 import BMICalculator from "@/components/BMICalculator";
 
-export default function TreatmentExplainer() {
-  const [selectedId, setSelectedId] = useState<string>(TREATMENTS[0].id);
+export default function TreatmentExplainer({ 
+  selectedId, 
+  onSelect 
+}: { 
+  selectedId: string; 
+  onSelect: (id: string) => void; 
+}) {
   const activeTreatment = TREATMENTS.find(t => t.id === selectedId) || TREATMENTS[0];
 
   return (
@@ -28,7 +32,11 @@ export default function TreatmentExplainer() {
             {TREATMENTS.map((t) => (
               <button
                 key={t.id}
-                onClick={() => setSelectedId(t.id)}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  onSelect(t.id);
+                }}
                 className={`w-full text-left p-6 rounded-2xl border-2 transition-all duration-300 flex items-center justify-between group ${
                   selectedId === t.id 
                     ? "border-teal-600 bg-teal-50/50 shadow-lg shadow-teal-600/5" 
@@ -47,7 +55,7 @@ export default function TreatmentExplainer() {
           </div>
 
           {/* Detailed View */}
-          <div className="lg:col-span-8">
+          <div id="treatment-detail" className="lg:col-span-8 min-h-[600px] scroll-mt-24">
             <AnimatePresence mode="wait">
               <motion.div
                 key={selectedId}
@@ -57,7 +65,7 @@ export default function TreatmentExplainer() {
                 transition={{ duration: 0.4 }}
                 className="bg-slate-50 rounded-3xl p-8 lg:p-12 border border-slate-100"
               >
-                <div className={`${activeTreatment.id === 'glp1' || activeTreatment.id === 'trt' ? 'space-y-12' : 'grid md:grid-cols-2 gap-12'}`}>
+                <div className={activeTreatment.id === 'glp1' || activeTreatment.id === 'trt' ? "space-y-12" : "grid md:grid-cols-2 gap-12"}>
                   <div className="space-y-8">
                     <div className="space-y-4">
                       <Badge variant="outline" className="text-teal-600 border-teal-200 bg-teal-50">Treatment Overview</Badge>
@@ -97,18 +105,6 @@ export default function TreatmentExplainer() {
                           onClick={() => document.getElementById('peptides-detail')?.scrollIntoView({ behavior: 'smooth' })}
                         >
                           Explore Specific Formulas
-                        </Button>
-                      </div>
-                    )}
-
-                    {(activeTreatment.id === 'glp1' || activeTreatment.id === 'trt') && (
-                      <div className="pt-4">
-                        <Button 
-                          variant="outline"
-                          className="border-teal-600 text-teal-600 hover:bg-teal-600 hover:text-white rounded-xl font-bold"
-                          onClick={() => document.getElementById('metabolic')?.scrollIntoView({ behavior: 'smooth' })}
-                        >
-                          View Metabolic Integration
                         </Button>
                       </div>
                     )}

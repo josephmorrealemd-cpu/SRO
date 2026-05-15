@@ -10,7 +10,7 @@ export default function PeptidesContent() {
   ]));
 
   return (
-    <section id="peptides-detail" className="py-24 bg-slate-50">
+    <section id="peptides-detail" className="py-24 bg-slate-50 scroll-mt-20">
       <div className="container mx-auto px-4">
         <div className="max-w-4xl mx-auto space-y-16">
           <div className="text-center space-y-4">

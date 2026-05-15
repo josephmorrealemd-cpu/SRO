@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useNavigate } from "react-router-dom";
 import { 
   Scale, 
   Ruler, 
@@ -34,6 +35,7 @@ const BMI_CATEGORIES: BMICategory[] = [
 ];
 
 export default function BMICalculator() {
+  const navigate = useNavigate();
   const [unitSystem, setUnitSystem] = useState<UnitSystem>(UnitSystem.IMPERIAL);
   
   const [weight, setWeight] = useState<string>('150');
@@ -86,13 +88,13 @@ export default function BMICalculator() {
         
         <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
           <button
-            onClick={() => { setUnitSystem(UnitSystem.METRIC); setWeight('70'); }}
+            onClick={(e) => { e.preventDefault(); setUnitSystem(UnitSystem.METRIC); setWeight('70'); }}
             className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${unitSystem === UnitSystem.METRIC ? 'bg-teal-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
           >
             Metric
           </button>
           <button
-            onClick={() => { setUnitSystem(UnitSystem.IMPERIAL); setWeight('150'); }}
+            onClick={(e) => { e.preventDefault(); setUnitSystem(UnitSystem.IMPERIAL); setWeight('150'); }}
             className={`px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${unitSystem === UnitSystem.IMPERIAL ? 'bg-teal-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
           >
             Imperial
@@ -100,7 +102,7 @@ export default function BMICalculator() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2">
+      <div className="grid grid-cols-1 lg:grid-cols-2">
         {/* Inputs */}
         <div className="p-5 lg:p-6 space-y-5 lg:space-y-6 bg-slate-950/30">
           <div className="space-y-3">
@@ -164,7 +166,7 @@ export default function BMICalculator() {
           </div>
 
           <button 
-            onClick={reset}
+            onClick={(e) => { e.preventDefault(); reset(); }}
             className="w-full py-4 rounded-2xl border border-dashed border-slate-800 text-slate-600 font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:border-teal-500 hover:text-teal-500 transition-all active:scale-95"
           >
             <RefreshCcw size={16} /> Reset
@@ -187,25 +189,25 @@ export default function BMICalculator() {
                 className="text-center z-10 space-y-4 w-full"
               >
                 <div className="relative inline-flex items-center justify-center">
-                  <svg className="w-32 h-32 md:w-40 md:h-40 -rotate-90 overflow-visible">
+                  <svg className="w-32 h-32 md:w-36 md:h-36 -rotate-90 overflow-visible" viewBox="0 0 100 100">
                     <circle
-                      cx="50%"
-                      cy="50%"
-                      r="45%"
+                      cx="50"
+                      cy="50"
+                      r="44"
                       fill="none"
                       stroke="#1e293b"
                       strokeWidth="8"
                     />
                     <motion.circle
-                      cx="50%"
-                      cy="50%"
-                      r="45%"
+                      cx="50"
+                      cy="50"
+                      r="44"
                       fill="none"
                       stroke="currentColor"
                       strokeWidth="8"
-                      strokeDasharray="283"
+                      strokeDasharray="276"
                       animate={{ 
-                        strokeDashoffset: 283 * (1 - Math.min(Math.max(bmiInput, 0), 40) / 40),
+                        strokeDashoffset: 276 * (1 - Math.min(Math.max(bmiInput, 0), 40) / 40),
                         color: currentCategory ? (
                             currentCategory.label === 'Normal' ? '#10b981' : 
                             currentCategory.label === 'Underweight' ? '#3b82f6' : 
@@ -259,12 +261,13 @@ export default function BMICalculator() {
                     className="pt-2"
                   >
                     <Button 
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.preventDefault();
                         const el = document.getElementById('contact');
                         if (el) {
                           el.scrollIntoView({ behavior: 'smooth' });
                         } else {
-                          window.location.href = '/contact';
+                          navigate('/contact');
                         }
                       }}
                       className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl h-10 text-xs shadow-lg shadow-rose-600/20 group"
@@ -306,12 +309,6 @@ export default function BMICalculator() {
             Reducing BMI by just 10% can significantly improve joint comfort and potentially delay the need for orthopedic surgery.
           </p>
         </div>
-        <button 
-          onClick={() => document.getElementById('metabolic')?.scrollIntoView({ behavior: 'smooth' })}
-          className="flex items-center gap-1 text-[10px] font-black uppercase tracking-[0.2em] text-teal-400 hover:gap-2 transition-all"
-        >
-          Metabolic Axis <ChevronRight size={14} />
-        </button>
       </div>
     </div>
   );

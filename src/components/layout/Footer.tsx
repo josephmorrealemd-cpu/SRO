@@ -29,9 +29,27 @@ export default function Footer() {
               Leading the way in regenerative orthopedic medicine. We help patients return to their active lifestyles without surgery.
             </p>
             <div className="flex gap-4">
-              <a href="#" className="hover:text-teal-400 transition-colors"><Facebook className="w-5 h-5" /></a>
-              <a href="#" className="hover:text-teal-400 transition-colors"><Twitter className="w-5 h-5" /></a>
-              <a href="#" className="hover:text-teal-400 transition-colors"><Linkedin className="w-5 h-5" /></a>
+              <button 
+                type="button"
+                onClick={(e) => e.preventDefault()} 
+                className="hover:text-teal-400 transition-colors cursor-pointer"
+              >
+                <Facebook className="w-5 h-5" />
+              </button>
+              <button 
+                type="button"
+                onClick={(e) => e.preventDefault()} 
+                className="hover:text-teal-400 transition-colors cursor-pointer"
+              >
+                <Twitter className="w-5 h-5" />
+              </button>
+              <button 
+                type="button"
+                onClick={(e) => e.preventDefault()} 
+                className="hover:text-teal-400 transition-colors cursor-pointer"
+              >
+                <Linkedin className="w-5 h-5" />
+              </button>
             </div>
           </div>
 
@@ -77,8 +95,20 @@ export default function Footer() {
         <div className="border-t border-slate-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-slate-500">
           <p>© 2026 Summit Regenerative Orthopedics. All rights reserved.</p>
           <div className="flex gap-6">
-            <a href="#" className="hover:text-slate-300">Privacy Policy</a>
-            <a href="#" className="hover:text-slate-300">Terms of Service</a>
+            <button 
+              type="button"
+              onClick={(e) => e.preventDefault()} 
+              className="hover:text-slate-300 cursor-pointer text-xs"
+            >
+              Privacy Policy
+            </button>
+            <button 
+              type="button"
+              onClick={(e) => e.preventDefault()} 
+              className="hover:text-slate-300 cursor-pointer text-xs"
+            >
+              Terms of Service
+            </button>
           </div>
         </div>
       </div>
