@@ -2,6 +2,7 @@ import React from "react";
 import { motion } from "motion/react";
 import { Dumbbell, ShieldCheck, MessageSquare, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BookingDialog } from "../ui/BookingDialog";
 
 export default function AnabolicSection() {
   return (
@@ -47,13 +48,18 @@ export default function AnabolicSection() {
                 </ul>
 
                 <div className="pt-4">
-                  <Button 
-                    onClick={() => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold h-14 rounded-2xl group shadow-lg shadow-blue-600/20"
-                  >
-                    <MessageSquare className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
-                    Message Us to Discuss TRT
-                  </Button>
+                  <BookingDialog 
+                    title="TRT & Hormonal Optimization"
+                    description="Discuss how testosterone replacement therapy can optimize your orthopedic recovery and muscle preservation. Fill out the form below to connect with our clinical team."
+                    trigger={
+                      <Button 
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold h-14 rounded-2xl group shadow-lg shadow-blue-600/20"
+                      >
+                        <MessageSquare className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
+                        Message Us to Discuss TRT
+                      </Button>
+                    }
+                  />
                 </div>
               </div>
             </div>
