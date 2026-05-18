@@ -1,8 +1,6 @@
 import { motion } from "motion/react";
 import { ArrowLeft, Clock, User, BookOpen } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
-
 export default function UnderstandingPRP() {
   return (
     <motion.div
@@ -11,10 +9,9 @@ export default function UnderstandingPRP() {
       exit={{ opacity: 0, y: -20 }}
       className="pt-12 pb-24"
     >
-      <Helmet>
-        <title>PRP Therapy for Joint Pain | Westminster CO | Summit Regenerative</title>
-        <meta name="description" content="Discover how Platelet-Rich Plasma (PRP) therapy uses your own blood to heal joint pain, tendon injuries, and arthritis without surgery in Westminster, CO." />
-      </Helmet>
+      <title>PRP Therapy for Joint Pain | Westminster CO | Summit Regenerative</title>
+      <meta name="description" content="Discover how Platelet-Rich Plasma (PRP) therapy uses your own blood to heal joint pain, tendon injuries, and arthritis without surgery in Westminster, CO." />
+      
       <div className="container mx-auto px-4 max-w-4xl">
         <Link to="/education" className="inline-flex items-center gap-2 text-teal-600 font-bold mb-8 hover:gap-3 transition-all">
           <ArrowLeft className="w-4 h-4" />

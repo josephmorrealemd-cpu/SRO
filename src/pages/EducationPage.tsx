@@ -1,8 +1,6 @@
 import { BookingDialog } from "../components/ui/BookingDialog";
 import { motion } from "motion/react";
 import { Link } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
-
 export default function EducationPage() {
   return (
     <motion.div
@@ -12,10 +10,9 @@ export default function EducationPage() {
       transition={{ duration: 0.5 }}
       className="pt-12 pb-24"
     >
-      <Helmet>
-        <title>Orthopedic Education & Surgery Alternatives | Westminster CO</title>
-        <meta name="description" content="Learn about regenerative medicine, get a second opinion on surgery, and explore how PRP and Wharton's Jelly can heal your joint pain in Westminster, CO." />
-      </Helmet>
+      <title>Orthopedic Education & Surgery Alternatives | Westminster CO</title>
+      <meta name="description" content="Learn about regenerative medicine, get a second opinion on surgery, and explore how PRP and Wharton's Jelly can heal your joint pain in Westminster, CO." />
+      
       <div className="container mx-auto px-4">
         <div className="text-center mb-16">
           <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-4">Patient Education</h1>

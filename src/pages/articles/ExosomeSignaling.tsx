@@ -1,8 +1,6 @@
 import { motion } from "motion/react";
 import { ArrowLeft, Clock, User, BookOpen } from "lucide-react";
 import { Link } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
-
 export default function ExosomeSignaling() {
   return (
     <motion.div
@@ -11,10 +9,9 @@ export default function ExosomeSignaling() {
       exit={{ opacity: 0, y: -20 }}
       className="pt-12 pb-24"
     >
-      <Helmet>
-        <title>Exosome Therapy for Healing | Westminster CO | Summit Regenerative</title>
-        <meta name="description" content="Discover the power of exosomes in regenerative medicine. Learn how cellular signaling can accelerate joint repair and reduce inflammation in Westminster, CO." />
-      </Helmet>
+      <title>Exosome Therapy for Healing | Westminster CO | Summit Regenerative</title>
+      <meta name="description" content="Discover the power of exosomes in regenerative medicine. Learn how cellular signaling can accelerate joint repair and reduce inflammation in Westminster, CO." />
+      
       <div className="container mx-auto px-4 max-w-4xl">
         <Link to="/education" className="inline-flex items-center gap-2 text-teal-600 font-bold mb-8 hover:gap-3 transition-all">
           <ArrowLeft className="w-4 h-4" />

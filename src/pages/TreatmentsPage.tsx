@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import TreatmentExplainer from "../components/sections/TreatmentExplainer";
 import ConditionSelector from "../components/sections/ConditionSelector";
 import RecoveryTimeline from "../components/sections/RecoveryTimeline";
@@ -7,11 +8,27 @@ import MetabolicSection from "../components/sections/MetabolicSection";
 import AnabolicSection from "../components/sections/AnabolicSection";
 import Contact from "../components/sections/Contact";
 import { motion } from "motion/react";
-import { Helmet } from "react-helmet-async";
 import { TREATMENTS } from "@/types";
 
 export default function TreatmentsPage() {
+  const [searchParams] = useSearchParams();
   const [selectedTreatmentId, setSelectedTreatmentId] = useState<string>(TREATMENTS[0].id);
+
+  useEffect(() => {
+    const goal = searchParams.get('goal');
+    if (goal) {
+      setTimeout(() => {
+        const targetId = goal === 'joint' ? 'treatments' 
+                       : goal === 'metabolism' ? 'metabolic' 
+                       : goal === 'hormones' ? 'anabolic' 
+                       : goal === 'performance' ? 'peptides-detail' : null;
+        
+        if (targetId) {
+          document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 500);
+    }
+  }, [searchParams]);
 
   const handleSelectTreatment = (id: string, scroll = true) => {
     setSelectedTreatmentId(id);
@@ -52,23 +69,22 @@ export default function TreatmentsPage() {
 
   return (
     <div className="pt-12 min-h-screen">
-      <Helmet>
-        <title>Regenerative Orthopedic Treatments | PRP, Exosomes & Peptides | Westminster CO</title>
-        <meta name="description" content="Explore advanced non-surgical treatments including PRP therapy, Wharton's Jelly, Exosomes, and Peptide therapy at Summit Regenerative Orthopedics in Westminster." />
-      </Helmet>
+      <title>Regenerative Orthopedic Treatments | PRP, Exosomes & Peptides | Westminster CO</title>
+      <meta name="description" content="Explore advanced non-surgical treatments including PRP therapy, Wharton's Jelly, Exosomes, and Peptide therapy at Summit Regenerative Orthopedics in Westminster." />
+      
       <div className="container mx-auto px-4 text-center mb-16">
-        <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-4">Our Treatments</h1>
+        <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-4">Our Programs</h1>
         <p className="text-slate-600 max-w-2xl mx-auto">
-          We specialize in non-operative regenerative procedures designed to help you avoid surgery and return to your active lifestyle.
+          We specialize in physician-guided protocols designed to help you move better, recover faster, and optimize your biology.
         </p>
       </div>
       <TreatmentExplainer 
         selectedId={selectedTreatmentId} 
         onSelect={(id) => handleSelectTreatment(id, window.innerWidth < 1024)} 
       />
-      <PeptidesContent />
       <MetabolicSection />
       <AnabolicSection />
+      <PeptidesContent />
       <RecoveryTimeline />
       <div className="bg-slate-50 py-24">
         <ConditionSelector onSelectTreatment={handleSelectTreatment} />

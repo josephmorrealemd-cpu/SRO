@@ -1,7 +1,5 @@
 import InteractiveBody from "../components/sections/InteractiveBody";
 import { motion } from "motion/react";
-import { Helmet } from "react-helmet-async";
-
 export default function AnatomyPage() {
   return (
     <motion.div
@@ -11,10 +9,9 @@ export default function AnatomyPage() {
       transition={{ duration: 0.5 }}
       className="pt-12 pb-24"
     >
-      <Helmet>
-        <title>Interactive Joint Anatomy Guide | Regenerative Solutions | Westminster CO</title>
-        <meta name="description" content="Use our interactive anatomy tool to learn how regenerative medicine can treat joint pain in the knees, hips, shoulders, and spine without surgery." />
-      </Helmet>
+      <title>Interactive Joint Anatomy Guide | Regenerative Solutions | Westminster CO</title>
+      <meta name="description" content="Use our interactive anatomy tool to learn how regenerative medicine can treat joint pain in the knees, hips, shoulders, and spine without surgery." />
+      
       <div className="container mx-auto px-4 text-center mb-16">
         <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-4">Interactive Anatomy</h1>
         <p className="text-slate-600 max-w-2xl mx-auto">
