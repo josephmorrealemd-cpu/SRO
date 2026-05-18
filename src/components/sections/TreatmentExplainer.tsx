@@ -66,47 +66,46 @@ export default function TreatmentExplainer({
               >
                 <div className={activeTreatment.id === 'glp1' || activeTreatment.id === 'trt' ? "space-y-12" : "grid md:grid-cols-2 gap-12"}>
                   <div className="space-y-8">
-                    <div className="space-y-4">
-                      <Badge variant="outline" className="text-teal-600 border-teal-200 bg-teal-50">Treatment Overview</Badge>
-                      <h4 className="text-3xl font-bold text-slate-900">{activeTreatment.name}</h4>
-                      <p className="text-slate-600 leading-relaxed">
-                        {activeTreatment.description}
-                      </p>
-                    </div>
+                    <div className="space-y-6">
+                      <div className="space-y-2">
+                        <Badge variant="outline" className="text-teal-600 border-teal-200 bg-teal-50">Treatment Outcome</Badge>
+                        <h4 className="text-3xl font-bold text-slate-900">{activeTreatment.name}</h4>
+                      </div>
+                      
+                      <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                        <div className="text-xs font-bold text-teal-600 uppercase tracking-wider mb-2">Best For</div>
+                        <p className="text-slate-700 text-sm font-medium">
+                          {activeTreatment.bestFor}
+                        </p>
+                      </div>
 
-                    <div className="space-y-4">
-                      <div className="text-sm font-bold text-slate-900 uppercase tracking-wider">Key Benefits</div>
-                      <div className="grid gap-3">
-                        {activeTreatment.benefits.map((benefit, i) => (
-                          <div key={i} className="flex items-center gap-3 text-slate-700">
-                            <CheckCircle2 className="w-5 h-5 text-teal-500 shrink-0" />
-                            <span className="text-sm font-medium">{benefit}</span>
-                          </div>
-                        ))}
+                      <div className="space-y-4">
+                        <div className="text-sm font-bold text-slate-900 uppercase tracking-wider">Common Goals</div>
+                        <div className="grid gap-3">
+                          {activeTreatment.commonGoals.map((goal, i) => (
+                            <div key={i} className="flex items-center gap-3 text-slate-700">
+                              <CheckCircle2 className="w-5 h-5 text-teal-500 shrink-0" />
+                              <span className="text-sm font-medium">{goal}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
 
-                    <TreatmentDetailDialog 
-                      treatment={activeTreatment}
-                      trigger={
-                        <button className="flex items-center gap-2 text-teal-600 font-bold hover:gap-3 transition-all">
-                          View full clinical details
-                          <ArrowRight className="w-4 h-4" />
-                        </button>
-                      }
-                    />
-
-                    {activeTreatment.id === 'peptides' && (
-                      <div className="pt-4">
-                        <Button 
-                          variant="outline"
-                          className="border-teal-600 text-teal-600 hover:bg-teal-600 hover:text-white rounded-xl font-bold"
-                          onClick={() => document.getElementById('peptides-detail')?.scrollIntoView({ behavior: 'smooth' })}
-                        >
-                          Explore Specific Formulas
-                        </Button>
-                      </div>
-                    )}
+                    <div className="pt-4 flex flex-col gap-4">
+                      <TreatmentDetailDialog 
+                        treatment={activeTreatment}
+                        trigger={
+                          <Button className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold h-12 rounded-xl group">
+                            Explore This Program
+                            <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+                          </Button>
+                        }
+                      />
+                      <button className="text-xs text-slate-500 hover:text-teal-600 transition-colors text-center font-medium">
+                        View clinical mechanism & science
+                      </button>
+                    </div>
                   </div>
 
                   <div className="relative group">

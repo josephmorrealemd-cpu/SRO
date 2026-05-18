@@ -16,10 +16,10 @@ export default function MetabolicSection() {
           
           {/* Header */}
           <div className="text-center space-y-4">
-            <h2 className="text-teal-400 font-bold uppercase tracking-widest text-sm">Metabolic Optimization</h2>
-            <h3 className="text-4xl md:text-5xl font-bold tracking-tight">GLP-1 Weighted Joint Support</h3>
+            <h2 className="text-teal-400 font-bold uppercase tracking-widest text-sm">Targeted Program</h2>
+            <h3 className="text-4xl md:text-5xl font-bold tracking-tight">Medical Weight Loss & Metabolism</h3>
             <p className="text-slate-400 text-lg max-w-3xl mx-auto">
-              We integrate GLP-1 therapies to address obesity-related joint loading and systemic inflammation, creating a better environment for regenerative healing.
+              We integrate GLP-1 therapies to reduce mechanical joint stress and systemic inflammation, creating the optimal biological environment for healing.
             </p>
           </div>
 
@@ -31,11 +31,11 @@ export default function MetabolicSection() {
                   <Scale className="w-8 h-8 text-teal-400" />
                 </div>
                 <div className="space-y-4">
-                  <h4 className="text-2xl font-bold">GLP-1 Metabolic Support</h4>
+                  <h4 className="text-2xl font-bold">Outcome: Joint Decompression</h4>
                   <p className="text-slate-300 leading-relaxed">
-                    GLP-1 receptor agonists (Semaglutide, Tirzepatide) achieve substantial weight loss (12–24%), significantly reducing the mechanical stress on your joints. 
-                    <span className="block mt-4 text-emerald-400 font-medium">Orthopedic Relevance:</span>
-                    Reduced joint loading in Osteoarthritis (OA) and potential systemic anti-inflammatory effects.
+                    GLP-1 receptor agonists (Semaglutide, Tirzepatide) achieve substantial weight loss, which is the single most effective way to reduce the PSI on knee and hip cartilage.
+                    <span className="block mt-4 text-emerald-400 font-medium">Why it matters:</span>
+                    Lowering your weight by just 10% can reduce joint pain by up to 50% in many patients.
                   </p>
                 </div>
 

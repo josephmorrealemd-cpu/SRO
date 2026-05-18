@@ -23,26 +23,32 @@ export default function Hero() {
           </div>
           
           <h1 className="text-5xl lg:text-7xl font-bold text-slate-900 leading-[1.1] tracking-tight">
-            Heal Naturally. <br />
-            <span className="text-teal-600 italic font-serif">Move Freely.</span>
+            Restore Recovery. <br />
+            <span className="text-slate-400">Reduce Pain.</span> <br />
+            <span className="text-teal-600 italic font-serif">Optimize Performance.</span>
           </h1>
           
           <p className="text-lg text-slate-600 max-w-xl leading-relaxed">
-            Leading Westminster in regenerative medicine and non-operative orthopedics. From Wharton's Jelly and Exosomes to <strong>Musculoskeletal Laser</strong> and expert surgical second opinions, we help you avoid surgery and return to your active lifestyle.
+            Physician-guided peptide therapy, medical weight loss, and hormone optimization designed to help you move better, recover faster, and feel stronger.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4">
             <BookingDialog 
+              title="Schedule Your Medical Consultation"
+              description="Take the first step toward recovery. Schedule a personalized consultation with our specialized medical team to discuss your treatment goals."
               trigger={
                 <button className="bg-teal-600 text-white px-8 py-4 rounded-full font-bold hover:bg-teal-700 transition-all shadow-xl shadow-teal-600/20 flex items-center justify-center gap-2 group">
-                  Start Your Recovery
+                  Schedule Your Medical Consultation
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </button>
               }
             />
-            <Link to="/treatments" className="bg-white border border-slate-200 text-slate-700 px-8 py-4 rounded-full font-bold hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
-              View Treatments
-            </Link>
+            <button 
+              onClick={() => document.getElementById('programs')?.scrollIntoView({ behavior: 'smooth' })}
+              className="bg-white border border-slate-200 text-slate-700 px-8 py-4 rounded-full font-bold hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+            >
+              Explore Programs
+            </button>
           </div>
 
           <div className="grid grid-cols-3 gap-8 pt-8 border-t border-slate-200">

@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Info, X, Activity, ChevronRight, Sparkles, RefreshCw } from "lucide-react";
 import { GoogleGenAI } from "@google/genai";
-import { collection, doc, onSnapshot, serverTimestamp, setDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { collection, doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { db, auth } from "@/lib/firebase";
 import { BookingDialog } from "../ui/BookingDialog";
 import { toast } from "sonner";
 
@@ -85,7 +85,7 @@ const BODY_PARTS: BodyPart[] = [
 
 export default function InteractiveBody() {
   const [selectedPart, setSelectedPart] = useState<BodyPart | null>(null);
-  const [hologramUrl, setHologramUrl] = useState<string>("https://images.unsplash.com/photo-1583912267550-d44d7a125821?auto=format&fit=crop&q=80&w=800");
+  const [hologramUrl, setHologramUrl] = useState<string>("https://images.unsplash.com/photo-1530210124550-912dc1381cb8?auto=format&fit=crop&q=80&w=800");
   const [isGenerating, setIsGenerating] = useState(false);
   const isGeneratingRef = useRef(false);
   const hasAttemptedRefresh = useRef(false);
@@ -95,47 +95,63 @@ export default function InteractiveBody() {
   }, [isGenerating]);
 
   useEffect(() => {
-    // Listen to the global app state for the daily hologram
-    const unsubscribe = onSnapshot(doc(db, "app_state", "hologram"), (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data();
-        if (data.hologramUrl) {
-          setHologramUrl(data.hologramUrl);
-        }
+    // Fetch the daily hologram once on load
+    const fetchHologram = async () => {
+      try {
+        const userEmail = auth.currentUser?.email;
+        const isAdmin = userEmail === "team@watch1do1.com" || userEmail === "josephmorrealemd@gmail.com";
 
-        // Lazy refresh logic: if last update was yesterday or earlier
-        const lastUpdate = data.lastHologramUpdate?.toDate();
-        const lastAttempt = data.lastAttemptAt?.toDate();
-        const now = new Date();
+        const docRef = doc(db, "app_state", "hologram");
+        const snapshot = await getDoc(docRef);
 
-        if (lastUpdate) {
-          const isStale = lastUpdate.getDate() !== now.getDate() || 
-                          lastUpdate.getMonth() !== now.getMonth() || 
-                          lastUpdate.getFullYear() !== now.getFullYear();
-          
-          // Only attempt if it's stale AND we haven't tried in the last 4 hours
-          const coolDownPeriod = 4 * 60 * 60 * 1000; // 4 hours
-          const isCoolDownOver = !lastAttempt || (now.getTime() - lastAttempt.getTime()) > coolDownPeriod;
-
-          if (isStale && isCoolDownOver && !isGeneratingRef.current && !hasAttemptedRefresh.current) {
-            console.log("Hologram is stale and cooldown is over, triggering daily refresh...");
-            hasAttemptedRefresh.current = true;
-            generateHologram();
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          if (data.hologramUrl) {
+            setHologramUrl(data.hologramUrl);
           }
-        }
-      } else {
-        // If no hologram exists at all, generate the first one
-        if (!isGeneratingRef.current && !hasAttemptedRefresh.current) {
+
+          // Lazy refresh logic: if last update was yesterday or earlier
+          const lastUpdate = data.lastHologramUpdate?.toDate();
+          const lastAttempt = data.lastAttemptAt?.toDate();
+          const now = new Date();
+
+          if (lastUpdate && isAdmin) {
+            const isStale = lastUpdate.getDate() !== now.getDate() || 
+                            lastUpdate.getMonth() !== now.getMonth() || 
+                            lastUpdate.getFullYear() !== now.getFullYear();
+            
+            const coolDownPeriod = 4 * 60 * 60 * 1000;
+            const isCoolDownOver = !lastAttempt || (now.getTime() - lastAttempt.getTime()) > coolDownPeriod;
+
+            if (isStale && isCoolDownOver && !isGeneratingRef.current && !hasAttemptedRefresh.current) {
+              console.log("Hologram is stale, triggering admin refresh...");
+              hasAttemptedRefresh.current = true;
+              generateHologram();
+            }
+          }
+        } else if (isAdmin && !isGeneratingRef.current && !hasAttemptedRefresh.current) {
+          // If the document doesn't exist at all, only an admin can initialize it
+          console.log("Hologram doc missing, initializing as admin...");
           hasAttemptedRefresh.current = true;
           generateHologram();
         }
+      } catch (error: any) {
+        console.warn("Hologram fetch error (falling back to static asset):", error.message);
+        // Fallback is already set in state
       }
-    });
+    };
 
-    return () => unsubscribe();
-  }, []); // Empty dependency array to prevent loop
+    fetchHologram();
+  }, []); // Only fetch once on mount
 
   const generateHologram = async () => {
+    // Only attempt if API key is present
+    const apiKey = process.env.GEMINI_API_KEY || (import.meta as any).env.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+      console.warn("No Gemini API key found for background generation.");
+      return;
+    }
+
     setIsGenerating(true);
     try {
       // Mark the attempt in Firestore immediately to prevent other users from trying
@@ -143,20 +159,16 @@ export default function InteractiveBody() {
         lastAttemptAt: serverTimestamp()
       }, { merge: true });
 
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+      const ai = new GoogleGenAI({ apiKey });
+      // Using a modern model alias
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-image",
+        model: "gemini-2.0-flash",
         contents: {
           parts: [
             {
               text: "A high-tech, medical-grade holographic render of a FULL HUMAN BODY anatomy in a standing pose, showing the entire skeletal structure and all major joints from head to toe. CRITICAL: The visualization MUST show the full length of the body (head, torso, arms, and legs), NOT just a specific organ like a heart or a brain. The style is futuristic, glowing teal and cyan neon lines on a dark background, semi-transparent, cinematic lighting, professional medical visualization, 8k resolution.",
             },
           ],
-        },
-        config: {
-          imageConfig: {
-            aspectRatio: "9:16",
-          },
         },
       });
 

@@ -3,5 +3,8 @@
   "description": "Advanced regenerative orthopedic treatments in Westminster, CO. Specializing in non-surgical solutions for joint pain and sports injuries.",
   "requestFramePermissions": [
     "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
   ]
 }

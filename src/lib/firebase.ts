@@ -1,16 +1,17 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { initializeFirestore, collection, addDoc, serverTimestamp, getDocFromServer, doc } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, serverTimestamp, getDocFromServer, doc } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-// @ts-ignore - firestoreDatabaseId might not exist in manual config
-export const db = initializeFirestore(app, {
-  experimentalForceLongPolling: true,
-}, (firebaseConfig as any).firestoreDatabaseId || '(default)');
+
+// Initialize Firestore
+const databaseId = (firebaseConfig as any).firestoreDatabaseId;
+export const db = getFirestore(app, databaseId);
+
 export const storage = getStorage(app);
 
 // Test connection

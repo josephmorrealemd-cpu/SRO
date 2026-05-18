@@ -218,45 +218,40 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (!isAdmin) return;
 
-    const bQuery = query(collection(db, "bookings"), orderBy("createdAt", "desc"));
-    const mQuery = query(collection(db, "contact_messages"), orderBy("createdAt", "desc"));
-    const eQuery = query(collection(db, "analytics_events"), orderBy("createdAt", "desc"));
-    const sQuery = query(collection(db, "active_sessions"), orderBy("lastActive", "desc"));
+    const fetchAllData = async () => {
+      try {
+        const { getDocs, query, collection, orderBy, doc, getDoc } = await import("firebase/firestore");
+        
+        const bSnapshot = await getDocs(query(collection(db, "bookings"), orderBy("createdAt", "desc")));
+        setBookings(bSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking)));
 
-    const unsubB = onSnapshot(bQuery, (snapshot) => {
-      setBookings(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking)));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, "bookings"));
+        const mSnapshot = await getDocs(query(collection(db, "contact_messages"), orderBy("createdAt", "desc")));
+        setMessages(mSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ContactMessage)));
 
-    const unsubM = onSnapshot(mQuery, (snapshot) => {
-      setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ContactMessage)));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, "contact_messages"));
+        const eSnapshot = await getDocs(query(collection(db, "analytics_events"), orderBy("createdAt", "desc")));
+        setEvents(eSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AnalyticsEvent)));
 
-    const unsubE = onSnapshot(eQuery, (snapshot) => {
-      setEvents(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AnalyticsEvent)));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, "analytics_events"));
+        const sSnapshot = await getDocs(query(collection(db, "active_sessions"), orderBy("lastActive", "desc")));
+        setActiveSessions(sSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ActiveSession)));
 
-    const unsubS = onSnapshot(sQuery, (snapshot) => {
-      setActiveSessions(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ActiveSession)));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, "active_sessions"));
-
-    const unsubH = onSnapshot(doc(db, "app_state", "hologram"), (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data();
-        setCurrentHologram({
-          url: data.hologramUrl,
-          lastUpdated: data.lastHologramUpdate,
-          lastAttempt: data.lastAttemptAt
-        });
+        const hSnapshot = await getDoc(doc(db, "app_state", "hologram"));
+        if (hSnapshot.exists()) {
+          const data = hSnapshot.data();
+          setCurrentHologram({
+            url: data.hologramUrl,
+            lastUpdated: data.lastHologramUpdate,
+            lastAttempt: data.lastAttemptAt
+          });
+        }
+      } catch (error) {
+        console.error("Admin data fetch error:", error);
       }
-    });
-
-    return () => {
-      unsubB();
-      unsubM();
-      unsubE();
-      unsubS();
-      unsubH();
     };
+
+    fetchAllData();
+    // Refresh every 30 seconds instead of using persistent snapshots to avoid assertion crashes
+    const interval = setInterval(fetchAllData, 30000);
+    return () => clearInterval(interval);
   }, [isAdmin]);
 
   const handleLogin = async () => {
@@ -300,22 +295,24 @@ export default function AdminDashboard() {
   };
 
   const generateHologram = async () => {
+    const apiKey = process.env.GEMINI_API_KEY || (import.meta as any).env.VITE_GEMINI_API_KEY;
+    
+    if (!apiKey) {
+      toast.error("GEMINI_API_KEY is not set. Please check project settings.");
+      return;
+    }
+
     setIsGenerating(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+      const ai = new GoogleGenAI({ apiKey });
       const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-image",
+        model: "gemini-2.0-flash",
         contents: {
           parts: [
             {
-              text: "A high-tech, medical-grade holographic render of a FULL HUMAN BODY anatomy in a standing pose, showing the entire skeletal structure and all major joints from head to toe. CRITICAL: The visualization MUST show the full length of the body (head, torso, arms, and legs), NOT just a specific organ like a heart or a brain. The style is futuristic, glowing teal and cyan neon lines on a dark background, semi-transparent, cinematic lighting, professional medical visualization, 8k resolution.",
+              text: "A high-tech, medical-grade holographic render of a FULL HUMAN BODY anatomy in a standing pose, showing the entire skeletal structure and all major joints from head to toe. CRITICAL: The visualization MUST show the full length of the body (head, torso, arms, and legs). Futuristic glowing teal and cyan neon lines on a dark background.",
             },
           ],
-        },
-        config: {
-          imageConfig: {
-            aspectRatio: "9:16",
-          },
         },
       });
 

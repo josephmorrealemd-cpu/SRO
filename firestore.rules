@@ -53,9 +53,10 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-          (request.auth.token.email == "team@watch1do1.com" && request.auth.token.email_verified == true) ||
-          (request.auth.token.email == "josephmorrealemd@gmail.com" && request.auth.token.email_verified == true));
+        (request.auth.token.email == "team@watch1do1.com" ||
+         request.auth.token.email == "josephmorrealemd@gmail.com" ||
+         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
     }
 
     function isValidEmail(email) {

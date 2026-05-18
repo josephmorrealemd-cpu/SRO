@@ -1,6 +1,6 @@
 import React from "react";
 import { motion } from "motion/react";
-import { Dumbbell, ShieldCheck, MessageSquare, Activity } from "lucide-react";
+import { Dumbbell, ShieldCheck, MessageSquare, Activity, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BookingDialog } from "../ui/BookingDialog";
 
@@ -11,8 +11,8 @@ export default function AnabolicSection() {
         <div className="max-w-6xl mx-auto space-y-16">
           
           <div className="text-center space-y-4">
-            <h2 className="text-blue-400 font-bold uppercase tracking-widest text-sm">Anabolic Support</h2>
-            <h3 className="text-4xl md:text-5xl font-bold tracking-tight">Testosterone Replacement (TRT)</h3>
+            <h2 className="text-blue-400 font-bold uppercase tracking-widest text-sm">Targeted Program</h2>
+            <h3 className="text-4xl md:text-5xl font-bold tracking-tight">Hormonal Optimization (TRT)</h3>
             <p className="text-slate-400 text-lg max-w-3xl mx-auto">
               Optimizing hormone levels to preserve muscle mass, enhance bone density, and accelerate recovery from orthopedic injury or surgery.
             </p>
@@ -22,14 +22,14 @@ export default function AnabolicSection() {
             <div className="space-y-8">
               <div className="bg-slate-800/50 p-8 rounded-[2.5rem] border border-slate-700 space-y-6">
                 <div className="w-16 h-16 bg-blue-500/10 rounded-2xl flex items-center justify-center">
-                  <Dumbbell className="w-8 h-8 text-blue-400" />
+                  <Zap className="w-8 h-8 text-blue-400" />
                 </div>
                 <div className="space-y-4">
-                  <h4 className="text-2xl font-bold">The Anabolic Foundation</h4>
+                  <h4 className="text-2xl font-bold">Outcome: Strength & Recovery</h4>
                   <p className="text-slate-300 leading-relaxed">
-                    Testosterone Therapy increases lean body mass and bone density. This creates the foundation needed to recover from surgery or injury.
-                    <span className="block mt-4 text-blue-400 font-medium">Orthopedic Relevance:</span>
-                    Reduces sarcopenia (muscle loss), enhances surgical recovery, and improves bone mineral density in hypogonadal men.
+                    Testosterone Therapy is about more than just energy. It creates the anabolic foundation needed to build muscle and bone, which are critical for stable joints.
+                    <span className="block mt-4 text-blue-400 font-medium">Why it matters:</span>
+                    Patients in an optimized hormonal state recover faster from major orthopedic procedures like joint replacements.
                   </p>
                 </div>
 

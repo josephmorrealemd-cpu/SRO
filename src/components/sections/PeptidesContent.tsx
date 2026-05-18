@@ -2,6 +2,7 @@ import { motion } from "motion/react";
 import { PEPTIDES, PEPTIDE_COMBINATIONS } from "@/data/peptides";
 import { CheckCircle2, FlaskConical, MessageSquare, ShieldCheck, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BookingDialog } from "../ui/BookingDialog";
 
 export default function PeptidesContent() {
   const categories = Array.from(new Set([
@@ -14,15 +15,14 @@ export default function PeptidesContent() {
       <div className="container mx-auto px-4">
         <div className="max-w-4xl mx-auto space-y-16">
           <div className="text-center space-y-4">
-            <h2 className="text-sm font-bold text-teal-600 uppercase tracking-widest">In-Depth Guide</h2>
-            <h3 className="text-4xl font-bold text-slate-900 tracking-tight">Understanding Peptide Therapy</h3>
+            <h2 className="text-sm font-bold text-teal-600 uppercase tracking-widest">Supporting Therapies</h2>
+            <h3 className="text-4xl font-bold text-slate-900 tracking-tight">Performance Peptides</h3>
             <p className="text-slate-600 text-lg leading-relaxed">
-              We use specific peptides to signal your body's natural healing and recovery processes. 
-              Below is a guide to the specific formulas we offer.
+              We use specific signaling molecules to optimize your body's natural recovery processes. 
             </p>
           </div>
 
-          <div className="space-y-24">
+          <div className="space-y-16">
             {categories.map((category) => (
               <div key={category} className="space-y-8">
                 <div className="flex items-center gap-4">
@@ -43,32 +43,21 @@ export default function PeptidesContent() {
                       <div className="space-y-6">
                         <div className="flex items-start justify-between">
                           <h5 className="text-2xl font-bold text-slate-900">{peptide.name}</h5>
-                          <div className="w-10 h-10 bg-teal-50 rounded-xl flex items-center justify-center">
-                            <Zap className="w-5 h-5 text-teal-600" />
-                          </div>
                         </div>
                         
                         <div className="space-y-4">
-                          <div>
-                            <p className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-2">What it is</p>
-                            <p className="text-slate-600 leading-relaxed">{peptide.description}</p>
-                          </div>
+                          <p className="text-slate-600 leading-relaxed text-sm">{peptide.description}</p>
 
                           <div>
-                            <p className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-2">What it may support</p>
+                            <p className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">Typical Treatment Focus</p>
                             <ul className="grid gap-2">
                               {peptide.supports.map((s) => (
-                                <li key={s} className="flex items-center gap-3 text-slate-600 text-sm">
-                                  <CheckCircle2 className="w-4 h-4 text-teal-500 shrink-0" />
+                                <li key={s} className="flex items-center gap-3 text-slate-600 text-xs text-left">
+                                  <CheckCircle2 className="w-3 h-3 text-teal-500 shrink-0" />
                                   {s}
                                 </li>
                               ))}
                             </ul>
-                          </div>
-
-                          <div>
-                            <p className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-2">How it works</p>
-                            <p className="text-slate-600 text-sm leading-relaxed">{peptide.howItWorks}</p>
                           </div>
                         </div>
                       </div>
@@ -133,19 +122,24 @@ export default function PeptidesContent() {
             <div className="max-w-2xl mx-auto space-y-4">
               <h4 className="text-3xl font-bold text-slate-900">Is Peptide Therapy Right for You?</h4>
               <p className="text-slate-600">
-                Peptide therapy is a medical treatment that requires a personalized consultation. 
-                Message us to set up a tele-health visit to discuss your goals and medical history.
+                Peptide therapy is a professional medical treatment that requires a personalized consultation. 
+                Get a recovery plan tailored to your biology.
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Button 
-                onClick={() => document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' })}
-                size="lg" 
-                className="bg-teal-600 hover:bg-teal-700 text-white px-12 h-14 rounded-2xl font-bold shadow-xl shadow-teal-600/20 text-lg group"
-              >
-                <MessageSquare className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
-                Message Us for a Tele-visit
-              </Button>
+              <BookingDialog 
+                title="Schedule Your Medical Consultation"
+                description="Our clinical team will evaluate your medical history and goals to determine if peptide therapy is an appropriate part of your recovery protocol."
+                trigger={
+                  <Button 
+                    size="lg" 
+                    className="bg-teal-600 hover:bg-teal-700 text-white px-12 h-14 rounded-2xl font-bold shadow-xl shadow-teal-600/20 text-lg group"
+                  >
+                    <MessageSquare className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform" />
+                    Schedule Your Medical Consultation
+                  </Button>
+                }
+              />
             </div>
           </div>
 
