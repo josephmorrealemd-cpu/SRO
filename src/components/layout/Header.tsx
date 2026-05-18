@@ -5,12 +5,12 @@ import { BookingDialog } from "../ui/BookingDialog";
 import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
-  { name: "Home", href: "/" },
-  { name: "Treatments", href: "/treatments" },
+  { name: "Programs", href: "/treatments" },
+  { name: "Weight Loss", href: "/treatments?goal=metabolism" },
+  { name: "TRT", href: "/treatments?goal=hormones" },
   { name: "Anatomy", href: "/anatomy" },
   { name: "Investment", href: "/investment" },
   { name: "Education", href: "/education" },
-  { name: "Contact", href: "/contact" },
 ];
 
 export default function Header() {
