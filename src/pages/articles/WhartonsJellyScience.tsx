@@ -1,6 +1,7 @@
 import { motion } from "motion/react";
 import { ArrowLeft, Clock, User, BookOpen } from "lucide-react";
 import { Link } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
 
 export default function WhartonsJellyScience() {
   return (
@@ -10,6 +11,10 @@ export default function WhartonsJellyScience() {
       exit={{ opacity: 0, y: -20 }}
       className="pt-12 pb-24"
     >
+      <Helmet>
+        <title>Wharton's Jelly for Joint Repair | Westminster CO | Summit Regenerative</title>
+        <meta name="description" content="Learn about the science of Wharton's Jelly and how it provides structural support and cushioning for severe joint pain and arthritis in Westminster, CO." />
+      </Helmet>
       <div className="container mx-auto px-4 max-w-4xl">
         <Link to="/education" className="inline-flex items-center gap-2 text-teal-600 font-bold mb-8 hover:gap-3 transition-all">
           <ArrowLeft className="w-4 h-4" />

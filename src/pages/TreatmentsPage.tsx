@@ -7,6 +7,7 @@ import MetabolicSection from "../components/sections/MetabolicSection";
 import AnabolicSection from "../components/sections/AnabolicSection";
 import Contact from "../components/sections/Contact";
 import { motion } from "motion/react";
+import { Helmet } from "react-helmet-async";
 import { TREATMENTS } from "@/types";
 
 export default function TreatmentsPage() {
@@ -51,6 +52,10 @@ export default function TreatmentsPage() {
 
   return (
     <div className="pt-12 min-h-screen">
+      <Helmet>
+        <title>Regenerative Orthopedic Treatments | PRP, Exosomes & Peptides | Westminster CO</title>
+        <meta name="description" content="Explore advanced non-surgical treatments including PRP therapy, Wharton's Jelly, Exosomes, and Peptide therapy at Summit Regenerative Orthopedics in Westminster." />
+      </Helmet>
       <div className="container mx-auto px-4 text-center mb-16">
         <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-4">Our Treatments</h1>
         <p className="text-slate-600 max-w-2xl mx-auto">

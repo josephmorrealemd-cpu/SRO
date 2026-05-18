@@ -1,5 +1,6 @@
 import Contact from "../components/sections/Contact";
 import { motion } from "motion/react";
+import { Helmet } from "react-helmet-async";
 
 export default function ContactPage() {
   return (
@@ -10,6 +11,10 @@ export default function ContactPage() {
       transition={{ duration: 0.5 }}
       className="pt-12 pb-24"
     >
+      <Helmet>
+        <title>Contact Us | Summit Regenerative Orthopedics | Westminster CO</title>
+        <meta name="description" content="Ready to avoid surgery? Contact Summit Regenerative Orthopedics in Westminster, CO today to schedule your personalized consultation." />
+      </Helmet>
       <div className="container mx-auto px-4 text-center mb-16">
         <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-4">Contact Our Team</h1>
         <p className="text-slate-600 max-w-2xl mx-auto">
