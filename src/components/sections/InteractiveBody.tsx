@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Info, X, Activity, ChevronRight, Sparkles, RefreshCw } from "lucide-react";
-import { GoogleGenAI } from "@google/genai";
 import { collection, doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { BookingDialog } from "../ui/BookingDialog";
@@ -145,13 +144,6 @@ export default function InteractiveBody() {
   }, []); // Only fetch once on mount
 
   const generateHologram = async () => {
-    // Only attempt if API key is present
-    const apiKey = process.env.GEMINI_API_KEY || (import.meta as any).env.VITE_GEMINI_API_KEY;
-    if (!apiKey) {
-      console.warn("No Gemini API key found for background generation.");
-      return;
-    }
-
     setIsGenerating(true);
     try {
       // Mark the attempt in Firestore immediately to prevent other users from trying
@@ -159,35 +151,28 @@ export default function InteractiveBody() {
         lastAttemptAt: serverTimestamp()
       }, { merge: true });
 
-      const ai = new GoogleGenAI({ apiKey });
-      // Using a modern model alias
-      const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
-        contents: {
-          parts: [
-            {
-              text: "A high-tech, medical-grade holographic render of a FULL HUMAN BODY anatomy in a standing pose, showing the entire skeletal structure and all major joints from head to toe. CRITICAL: The visualization MUST show the full length of the body (head, torso, arms, and legs), NOT just a specific organ like a heart or a brain. The style is futuristic, glowing teal and cyan neon lines on a dark background, semi-transparent, cinematic lighting, professional medical visualization, 8k resolution.",
-            },
-          ],
-        },
+      const response = await fetch("/api/generate-hologram", {
+        method: "POST",
       });
 
-      for (const part of response.candidates?.[0]?.content?.parts || []) {
-        if (part.inlineData) {
-          const base64Data = part.inlineData.data;
-          const newUrl = `data:image/png;base64,${base64Data}`;
-          setHologramUrl(newUrl);
-          
-          // Save to global app state so all users see the same daily image
-          try {
-            await setDoc(doc(db, "app_state", "hologram"), {
-              hologramUrl: newUrl,
-              lastHologramUpdate: serverTimestamp()
-            }, { merge: true });
-          } catch (dbError) {
-            console.error("Failed to save global hologram state:", dbError);
-          }
-          break;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate hologram");
+      }
+
+      const { imageUrl } = await response.json();
+      
+      if (imageUrl) {
+        setHologramUrl(imageUrl);
+        
+        // Save to global app state so all users see the same daily image
+        try {
+          await setDoc(doc(db, "app_state", "hologram"), {
+            hologramUrl: imageUrl,
+            lastHologramUpdate: serverTimestamp()
+          }, { merge: true });
+        } catch (dbError) {
+          console.error("Failed to save global hologram state:", dbError);
         }
       }
     } catch (error: any) {
@@ -195,13 +180,13 @@ export default function InteractiveBody() {
       
       // Check for quota exceeded (429)
       if (error?.message?.includes("429") || error?.message?.includes("quota")) {
-        toast.error("AI Quota exceeded. Please ensure your Google Cloud billing account is activated as per the email you received.");
+        toast.error("AI Quota exceeded. Using professional static anatomy.");
       } else {
         toast.error("AI Generation failed. Using professional static anatomy.");
       }
       
-      // Keep the current fallback if generation fails
-      setHologramUrl("https://images.unsplash.com/photo-1583912267550-d44d7a125821?auto=format&fit=crop&q=80&w=800");
+      // Keep a high quality fallback
+      setHologramUrl("https://images.unsplash.com/photo-1530210124550-912dc1381cb8?auto=format&fit=crop&q=80&w=800");
     } finally {
       setIsGenerating(false);
     }

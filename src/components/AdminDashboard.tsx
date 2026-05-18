@@ -84,7 +84,6 @@ import {
   Pie
 } from "recharts";
 import { format, subDays, isSameDay, startOfDay } from "date-fns";
-import { GoogleGenAI } from "@google/genai";
 
 interface Booking {
   id: string;
@@ -295,45 +294,35 @@ export default function AdminDashboard() {
   };
 
   const generateHologram = async () => {
-    const apiKey = process.env.GEMINI_API_KEY || (import.meta as any).env.VITE_GEMINI_API_KEY;
-    
-    if (!apiKey) {
-      toast.error("GEMINI_API_KEY is not set. Please check project settings.");
-      return;
-    }
-
     setIsGenerating(true);
     try {
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
-        contents: {
-          parts: [
-            {
-              text: "A high-tech, medical-grade holographic render of a FULL HUMAN BODY anatomy in a standing pose, showing the entire skeletal structure and all major joints from head to toe. CRITICAL: The visualization MUST show the full length of the body (head, torso, arms, and legs). Futuristic glowing teal and cyan neon lines on a dark background.",
-            },
-          ],
-        },
+      const response = await fetch("/api/generate-hologram", {
+        method: "POST",
       });
 
-      let newUrl = "";
-      for (const part of response.candidates?.[0]?.content?.parts || []) {
-        if (part.inlineData) {
-          const base64Data = part.inlineData.data;
-          newUrl = `data:image/png;base64,${base64Data}`;
-          break;
-        }
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate hologram");
       }
 
-      if (newUrl) {
+      const { imageUrl } = await response.json();
+
+      if (imageUrl) {
         // Use a try-catch for the setDoc to ensure we handle errors
         try {
           // We use setDoc with merge: true to create or update the document
           const { setDoc } = await import("firebase/firestore");
           await setDoc(doc(db, "app_state", "hologram"), {
-            hologramUrl: newUrl,
+            hologramUrl: imageUrl,
             lastHologramUpdate: serverTimestamp()
           }, { merge: true });
+          
+          setCurrentHologram(prev => ({
+            ...prev!,
+            url: imageUrl,
+            lastUpdated: Timestamp.now()
+          }));
+          
           toast.success("Daily hologram updated successfully");
         } catch (dbError) {
           console.error("Error saving to Firestore:", dbError);
@@ -345,7 +334,7 @@ export default function AdminDashboard() {
     } catch (error: any) {
       console.error("Failed to generate hologram:", error);
       if (error?.message?.includes("429") || error?.message?.includes("quota")) {
-        toast.error("AI Quota exceeded. Please activate your Google Cloud billing account as per the email from Google AI Studio.");
+        toast.error("AI Quota exceeded.");
       } else {
         toast.error("AI Generation failed.");
       }
