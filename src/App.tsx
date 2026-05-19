@@ -14,9 +14,9 @@ import ContactPage from "./pages/ContactPage";
 import UnderstandingPRP from "./pages/articles/UnderstandingPRP";
 import WhartonsJellyScience from "./pages/articles/WhartonsJellyScience";
 import ExosomeSignaling from "./pages/articles/ExosomeSignaling";
-import KneePainLanding from "./pages/funnels/KneePainLanding.tsx";
-import WeightLossLanding from "./pages/funnels/WeightLossLanding.tsx";
-import PerformanceLanding from "./pages/funnels/PerformanceLanding.tsx";
+import KneePain from "./pages/programs/KneePain";
+import WeightLoss from "./pages/programs/WeightLoss";
+import Performance from "./pages/programs/Performance";
 import ImageGenerator from "./pages/ImageGenerator";
 import AdminDashboard from "./components/AdminDashboard";
 import { Toaster } from "@/components/ui/sonner";
@@ -75,9 +75,9 @@ export default function App() {
           <Route path="/image-generator" element={<ImageGenerator />} />
           
           {/* Growth Funnels */}
-          <Route path="/avoid-knee-surgery" element={<KneePainLanding />} />
-          <Route path="/medical-weight-loss" element={<WeightLossLanding />} />
-          <Route path="/performance-optimization" element={<PerformanceLanding />} />
+          <Route path="/avoid-knee-surgery" element={<KneePain />} />
+          <Route path="/medical-weight-loss" element={<WeightLoss />} />
+          <Route path="/performance-optimization" element={<Performance />} />
         </Route>
 
         {/* Admin Route */}
