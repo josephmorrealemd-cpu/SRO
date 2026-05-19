@@ -200,18 +200,37 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
+    console.log("AdminDashboard auth state tracker mounted. Registering onAuthStateChanged...");
+    
+    // Safety timer to prevent permanent "Loading dashboard..." hang
+    const timer = setTimeout(() => {
+      setLoading((currLoading) => {
+        if (currLoading) {
+          console.warn("Firebase onAuthStateChanged did not trigger within 4 seconds. Forcing loading to false as safety fallback.");
+          return false;
+        }
+        return currLoading;
+      });
+    }, 4000);
+
     const unsubscribe = onAuthStateChanged(auth, (u) => {
+      console.log("onAuthStateChanged callback triggered. User details:", u ? { email: u.email, uid: u.uid } : "No active session");
       setUser(u);
       if (u) {
-        // Check if user is admin (based on email or role)
-        // For now, we'll check the email from the context
-        setIsAdmin(u.email === "team@watch1do1.com" || u.email === "josephmorrealemd@gmail.com");
+        const adminCheck = u.email === "team@watch1do1.com" || u.email === "josephmorrealemd@gmail.com";
+        console.log(`Checking admin privileges for ${u.email}: ${adminCheck ? "ADMIN" : "NOT ADMIN"}`);
+        setIsAdmin(adminCheck);
       } else {
         setIsAdmin(false);
       }
       setLoading(false);
+      clearTimeout(timer);
     });
-    return () => unsubscribe();
+
+    return () => {
+      unsubscribe();
+      clearTimeout(timer);
+    };
   }, []);
 
   useEffect(() => {

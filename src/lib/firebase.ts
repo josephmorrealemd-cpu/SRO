@@ -17,11 +17,11 @@ export const storage = getStorage(app);
 // Test connection
 async function testConnection() {
   try {
+    console.log("Testing Firebase Firestore connection...");
     await getDocFromServer(doc(db, 'test', 'connection'));
+    console.log("Firebase Firestore connection test response received (it's okay if it throws permission-denied, that means we reached the server).");
   } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration. The client is offline.");
-    }
+    console.error("Firebase connection test error:", error);
   }
 }
 testConnection();
