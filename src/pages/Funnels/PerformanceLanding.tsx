@@ -1,7 +1,7 @@
 import React from "react";
 import { motion } from "motion/react";
 import { Zap, ShieldCheck, ArrowRight, LayoutGrid, Heart, Flame } from "lucide-react";
-import { BookingDialog } from "../../components/ui/BookingDialog";
+import { BookingDialog } from "@/components/ui/BookingDialog";
 
 export default function PerformanceLanding() {
   return (
