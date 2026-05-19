@@ -5,12 +5,12 @@ import { Link } from "react-router-dom";
 
 const pathways = [
   {
-    title: "Joint Recovery & Pain",
-    description: "Tendon healing, inflammation support, and structural mobility restoration.",
+    title: "Regenerative Orthopedics",
+    description: "Advanced injections and non-surgical repair protocols led by board-certified orthopedic surgeons.",
     icon: Activity,
     color: "teal",
     link: "/treatments?goal=joint",
-    features: ["Tendon Healing", "Inflammation Support", "Mobility Restoration"]
+    features: ["PRP & Exosome Injections", "Non-Surgical Repair", "Consultative Expertise"]
   },
   {
     title: "Medical Weight Loss",

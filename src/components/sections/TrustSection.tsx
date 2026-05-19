@@ -9,8 +9,8 @@ const reasons = [
     icon: UserCog
   },
   {
-    title: "Orthopedic Expertise",
-    description: "Our foundation is in orthopedics. We understand how your biology affects your structural integrity.",
+    title: "Board-Certified Expertise",
+    description: "Our foundation is in orthopedic surgery. We provide an elite level of diagnostic and procedural precision for non-operative cases.",
     icon: Medal
   },
   {

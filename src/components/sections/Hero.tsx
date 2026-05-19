@@ -17,9 +17,15 @@ export default function Hero() {
           transition={{ duration: 0.6 }}
           className="space-y-8"
         >
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-xs font-bold uppercase tracking-wider">
-            <Zap className="w-3 h-3" />
-            Advanced Orthopedic Care
+          <div className="inline-flex flex-wrap items-center gap-2">
+            <div className="px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Board-Certified Orthopedic Excellence
+            </div>
+            <div className="px-3 py-1 bg-sky-100 text-sky-700 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5">
+              <Zap className="w-3.5 h-3.5" />
+              Non-Operative Precision
+            </div>
           </div>
           
           <h1 className="text-5xl lg:text-7xl font-bold text-slate-900 leading-[1.1] tracking-tight">
@@ -28,9 +34,14 @@ export default function Hero() {
             <span className="text-teal-600 italic font-serif">Optimize Performance.</span>
           </h1>
           
-          <p className="text-lg text-slate-600 max-w-xl leading-relaxed">
-            Physician-guided peptide therapy, medical weight loss, and hormone optimization designed to help you move better, recover faster, and feel stronger.
-          </p>
+          <div className="space-y-4 max-w-xl">
+            <p className="text-xl font-bold text-slate-900 leading-tight">
+              Advanced regenerative injections and non-operative orthopedic care delivered by board-certified orthopedic surgeons.
+            </p>
+            <p className="text-lg text-slate-600 leading-relaxed">
+              Physician-guided peptide therapy, medical weight loss, and hormone optimization designed to help you move better, recover faster, and feel stronger.
+            </p>
+          </div>
 
           <div className="flex flex-col sm:flex-row gap-4">
             <BookingDialog 
