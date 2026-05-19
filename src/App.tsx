@@ -14,6 +14,9 @@ import ContactPage from "./pages/ContactPage";
 import UnderstandingPRP from "./pages/articles/UnderstandingPRP";
 import WhartonsJellyScience from "./pages/articles/WhartonsJellyScience";
 import ExosomeSignaling from "./pages/articles/ExosomeSignaling";
+import KneePainLanding from "./pages/funnels/KneePainLanding";
+import WeightLossLanding from "./pages/funnels/WeightLossLanding";
+import PerformanceLanding from "./pages/funnels/PerformanceLanding";
 import ImageGenerator from "./pages/ImageGenerator";
 import AdminDashboard from "./components/AdminDashboard";
 import { Toaster } from "@/components/ui/sonner";
@@ -70,6 +73,11 @@ export default function App() {
           <Route path="/education/exosome-signaling" element={<ExosomeSignaling />} />
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/image-generator" element={<ImageGenerator />} />
+          
+          {/* Growth Funnels */}
+          <Route path="/avoid-knee-surgery" element={<KneePainLanding />} />
+          <Route path="/medical-weight-loss" element={<WeightLossLanding />} />
+          <Route path="/performance-optimization" element={<PerformanceLanding />} />
         </Route>
 
         {/* Admin Route */}

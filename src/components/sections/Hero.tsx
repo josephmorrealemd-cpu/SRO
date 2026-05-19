@@ -39,7 +39,7 @@ export default function Hero() {
               Advanced regenerative injections and non-operative orthopedic care delivered by board-certified orthopedic surgeons.
             </p>
             <p className="text-lg text-slate-600 leading-relaxed">
-              Physician-guided peptide therapy, medical weight loss, and hormone optimization designed to help you move better, recover faster, and feel stronger.
+              Personalized recovery, metabolic health, and hormone optimization programs designed to help you stay active, strong, and resilient.
             </p>
           </div>
 
@@ -64,16 +64,16 @@ export default function Hero() {
 
           <div className="grid grid-cols-3 gap-8 pt-8 border-t border-slate-200">
             <div className="space-y-1">
-              <div className="text-2xl font-bold text-slate-900">95%</div>
-              <div className="text-xs text-slate-500 uppercase font-semibold tracking-wider">Patient Success</div>
+              <div className="text-2xl font-bold text-slate-900">5,000+</div>
+              <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider leading-tight">Procedures Performed</div>
             </div>
             <div className="space-y-1">
               <div className="text-2xl font-bold text-slate-900">15+</div>
-              <div className="text-xs text-slate-500 uppercase font-semibold tracking-wider">Years Experience</div>
+              <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider leading-tight">Years Clinical Experience</div>
             </div>
             <div className="space-y-1">
-              <div className="text-2xl font-bold text-slate-900">5k+</div>
-              <div className="text-xs text-slate-500 uppercase font-semibold tracking-wider">Procedures Done</div>
+              <div className="text-2xl font-bold text-slate-900">Expert</div>
+              <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider leading-tight">Board-Certified Specialists</div>
             </div>
           </div>
         </motion.div>
@@ -86,8 +86,8 @@ export default function Hero() {
         >
           <div className="relative z-10 rounded-3xl overflow-hidden shadow-2xl border-8 border-white">
             <img 
-              src="https://images.unsplash.com/photo-1501555088652-021faa106b9b?auto=format&fit=crop&q=80&w=800&h=1000" 
-              alt="Active lifestyle in nature" 
+              src="https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=800&h=1000" 
+              alt="Orthopedic surgeon consulting with patient" 
               className="w-full h-auto object-cover"
               referrerPolicy="no-referrer"
             />
@@ -103,8 +103,8 @@ export default function Hero() {
               <Activity className="w-6 h-6" />
             </div>
             <div>
-              <div className="text-sm font-bold text-slate-900">Real-time Recovery</div>
-              <div className="text-[10px] text-slate-500">Monitoring your progress</div>
+              <div className="text-sm font-bold text-slate-900">Non-Surgical Recovery</div>
+              <div className="text-[10px] text-slate-500">Advanced regenerative protocols</div>
             </div>
           </motion.div>
 
@@ -117,8 +117,8 @@ export default function Hero() {
               <ShieldCheck className="w-6 h-6" />
             </div>
             <div>
-              <div className="text-sm font-bold text-slate-900">Safe & Effective</div>
-              <div className="text-[10px] text-slate-500">Expert Clinical Oversight</div>
+              <div className="text-sm font-bold text-slate-900">Physician-Guided Care</div>
+              <div className="text-[10px] text-slate-500">Personalized treatment oversight</div>
             </div>
           </motion.div>
         </motion.div>

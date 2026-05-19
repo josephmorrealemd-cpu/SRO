@@ -4,33 +4,33 @@ import { ShieldCheck, UserCog, Beaker, Medal, HeartHandshake, Microscope } from 
 
 const reasons = [
   {
-    title: "Physician-Guided Care",
-    description: "Every protocol is overseen by experienced medical doctors, not just computer algorithms or sales teams.",
+    title: "Surgical-Level Precision",
+    description: "Every non-operative plan is crafted with the anatomical insight of a board-certified orthopedic surgeon.",
     icon: UserCog
   },
   {
-    title: "Board-Certified Expertise",
-    description: "Our foundation is in orthopedic surgery. We provide an elite level of diagnostic and procedural precision for non-operative cases.",
-    icon: Medal
-  },
-  {
-    title: "Evidence-Informed",
-    description: "We utilize the latest peer-reviewed clinical data to inform our peptide and regenerative protocols.",
+    title: "Evidence-Informed Protocols",
+    description: "We utilize rigorous peer-reviewed clinical data to inform every regenerative and metabolic strategy.",
     icon: Microscope
   },
   {
-    title: "Personalized Dosing",
-    description: "No 'one-size-fits-all' treatments. Labs and clinical assessment drive every dosage decision.",
+    title: "Diagnostic Depth",
+    description: "Going beyond the surface. We provide an elite level of diagnostic assessment for complex musculoskeletal cases.",
+    icon: Medal
+  },
+  {
+    title: "Metabolic Continuity",
+    description: "We don't just treat the joint; we optimize the system with integrated hormonal and peptide support.",
     icon: Beaker
   },
   {
-    title: "Ongoing Monitoring",
-    description: "Regular check-ins and lab follow-ups ensure your plan remains safe and effective as you progress.",
+    title: "Integrated Oversight",
+    description: "Continuous monitoring ensures your recovery protocol stays aligned with your body's specific biological response.",
     icon: ShieldCheck
   },
   {
-    title: "Telehealth Convenience",
-    description: "Access world-class medical expertise from the comfort of your home with our integrated virtual clinic.",
+    title: "Direct Physician Access",
+    description: "Bypass the assistants. Gain direct access to world-class orthopedic expertise through our virtual clinic.",
     icon: HeartHandshake
   }
 ];
@@ -43,9 +43,9 @@ export default function TrustSection() {
           <div className="space-y-8">
             <div className="space-y-4">
               <h2 className="text-teal-600 font-bold uppercase tracking-widest text-sm">The Summit Difference</h2>
-              <h3 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900">Why Patients Choose Us Over National Clinics</h3>
+              <h3 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900">Why Patients Choose Summit Regenerative Orthopedics</h3>
               <p className="text-slate-600 text-lg leading-relaxed">
-                In an era of internet peptide sellers and automated clinics, we maintain a commitment to legitimate medical credibility and individual patient outcomes.
+                In an era of automated national clinics and internet hormone sellers, we maintain a defensive moat of board-certified surgical expertise and evidence-informed continuity of care.
               </p>
             </div>
 
