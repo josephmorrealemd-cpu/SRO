@@ -1,9 +1,9 @@
 import React from "react";
 import { motion } from "motion/react";
 import { Zap, ShieldCheck, ArrowRight, LayoutGrid, Heart, Flame } from "lucide-react";
-import { BookingDialog } from "../../components/ui/BookingDialog";
+import { BookingDialog } from "@/components/ui/BookingDialog";
 
-export default function PerformanceLanding() {
+export default function Performance() {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
@@ -31,7 +31,7 @@ export default function PerformanceLanding() {
             <BookingDialog 
               trigger={
                 <button className="w-full sm:w-auto bg-amber-500 text-slate-900 px-8 py-4 rounded-full font-bold text-lg hover:bg-amber-400 transition-all shadow-xl shadow-amber-500/20 flex items-center justify-center gap-2">
-                  Check Optimization Potential
+                  Check Your Potential
                   <ArrowRight className="w-5 h-5" />
                 </button>
               }

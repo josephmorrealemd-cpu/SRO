@@ -1,9 +1,9 @@
 import React from "react";
 import { motion } from "motion/react";
 import { ShieldCheck, Scale, ArrowRight, CheckCircle2, TrendingDown, Target } from "lucide-react";
-import { BookingDialog } from "../../components/ui/BookingDialog";
+import { BookingDialog } from "@/components/ui/BookingDialog";
 
-export default function WeightLossLanding() {
+export default function WeightLoss() {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}

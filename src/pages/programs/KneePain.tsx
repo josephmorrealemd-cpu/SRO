@@ -2,9 +2,9 @@ import React from "react";
 import { motion } from "motion/react";
 import { ShieldCheck, Activity, ArrowRight, CheckCircle2, ChevronRight, PlayCircle } from "lucide-react";
 import { Link } from "react-router-dom";
-import { BookingDialog } from "../../components/ui/BookingDialog";
+import { BookingDialog } from "@/components/ui/BookingDialog";
 
-export default function KneePainLanding() {
+export default function KneePain() {
   return (
     <div className="min-h-screen bg-white">
       {/* Hero Section */}
