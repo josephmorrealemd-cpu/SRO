@@ -1,7 +1,7 @@
 import React from "react";
 import { motion } from "motion/react";
 import { ShieldCheck, Scale, ArrowRight, CheckCircle2, TrendingDown, Target } from "lucide-react";
-import { BookingDialog } from "@/components/ui/BookingDialog";
+import { BookingDialog } from "../../components/ui/BookingDialog";
 
 export default function WeightLossLanding() {
   return (
