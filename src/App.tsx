@@ -19,6 +19,7 @@ import WeightLoss from "./pages/programs/WeightLoss";
 import Performance from "./pages/programs/Performance";
 import ImageGenerator from "./pages/ImageGenerator";
 import AdminDashboard from "./components/AdminDashboard";
+import AdminPhoneConsole from "./pages/AdminPhoneConsole";
 import { Toaster } from "@/components/ui/sonner";
 import { ErrorBoundary } from "./components/ui/ErrorBoundary";
 import { useEffect } from "react";
@@ -84,6 +85,13 @@ export default function App() {
         <Route path="/admin" element={
           <ErrorBoundary>
             <AdminDashboard />
+            <Toaster position="top-center" richColors />
+          </ErrorBoundary>
+        } />
+
+        <Route path="/admin/phone" element={
+          <ErrorBoundary>
+            <AdminPhoneConsole />
             <Toaster position="top-center" richColors />
           </ErrorBoundary>
         } />

@@ -159,6 +159,14 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    match /calls/{callId} {
+      allow read, write: if isAdmin();
+    }
+
+    match /test/{docId} {
+      allow read: if true;
+    }
+
     // Default deny
     match /{document=**} {
       allow read, write: if false;
