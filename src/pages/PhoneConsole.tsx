@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from "firebase/auth";
 import { auth } from "../lib/firebase";
 import { Link } from "react-router-dom";
-import { Device } from "@twilio/voice-sdk";
 import { 
   Phone, 
   PhoneIncoming, 
@@ -61,7 +60,7 @@ export default function AdminPhoneConsole() {
   // Twilio Browser WebRTC Phone Device States
   const [answeringMode, setAnsweringMode] = useState<"voice" | "text">("voice");
   const [twilioToken, setTwilioToken] = useState<string | null>(null);
-  const [device, setDevice] = useState<Device | null>(null);
+  const [device, setDevice] = useState<any>(null);
   const [deviceState, setDeviceState] = useState<"unregistered" | "ready" | "ringing" | "connected" | "error">("unregistered");
   const [activeConnection, setActiveConnection] = useState<any>(null);
 
@@ -141,10 +140,11 @@ export default function AdminPhoneConsole() {
   useEffect(() => {
     if (!user || !isAdmin) return;
 
-    let dev: Device | null = null;
+    let dev: any = null;
 
     const initTwilioDevice = async () => {
       try {
+        const { Device } = await import("@twilio/voice-sdk");
         const res = await fetch("/api/twilio/token");
         if (!res.ok) return;
 
