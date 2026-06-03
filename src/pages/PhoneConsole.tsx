@@ -142,9 +142,29 @@ export default function AdminPhoneConsole() {
 
     let dev: any = null;
 
+    const loadTwilioScript = () => {
+      return new Promise<void>((resolve, reject) => {
+        if ((window as any).Twilio) {
+          resolve();
+          return;
+        }
+        const script = document.createElement("script");
+        script.src = "https://sdk.twilio.com/js/voice/v2/twilio.min.js";
+        script.async = true;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error("Failed to load Twilio Voice SDK from CDN"));
+        document.body.appendChild(script);
+      });
+    };
+
     const initTwilioDevice = async () => {
       try {
-        const { Device } = await import("@twilio/voice-sdk");
+        await loadTwilioScript();
+        const Twilio = (window as any).Twilio;
+        if (!Twilio?.Device) {
+          throw new Error("Twilio Voice SDK global Device class not found");
+        }
+        const Device = Twilio.Device;
         const res = await fetch("/api/twilio/token");
         if (!res.ok) return;
 
