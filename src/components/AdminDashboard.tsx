@@ -66,7 +66,8 @@ import {
   TrendingUp,
   Clock,
   Sparkles,
-  RefreshCw
+  RefreshCw,
+  Phone
 } from "lucide-react";
 import { toast } from "sonner";
 import { 
@@ -449,6 +450,10 @@ export default function AdminDashboard() {
             <Button variant="ghost" size="sm" className="rounded-lg text-slate-600 hidden md:flex" onClick={() => window.location.href = "/"}>
               <ExternalLink className="w-4 h-4 mr-2" />
               View Website
+            </Button>
+            <Button variant="outline" size="sm" className="rounded-lg border-teal-200 text-teal-700 bg-teal-100 hover:bg-teal-200 hidden md:flex font-semibold" onClick={() => window.location.href = "/admin/phone"}>
+              <Phone className="w-4 h-4 mr-2" />
+              Phone Console
             </Button>
             <span className="text-xs text-slate-500 hidden sm:block">{user.email}</span>
             <Button onClick={handleLogout} variant="ghost" size="sm" className="rounded-lg text-slate-600">
