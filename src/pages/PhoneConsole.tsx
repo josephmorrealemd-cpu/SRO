@@ -187,7 +187,9 @@ export default function AdminDashboard() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [bookingSearch, setBookingSearch] = useState("");
   const [messageSearch, setMessageSearch] = useState("");
-  const [activeTab, setActiveTab] = useState("messages");
+  const [guideSearch, setGuideSearch] = useState("");
+  const [quizSearch, setQuizSearch] = useState("");
+  const [activeTab, setActiveTab] = useState("guides");
   const [selectedMessage, setSelectedMessage] = useState<ContactMessage | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: string, id: string } | null>(null);
   
@@ -560,6 +562,52 @@ export default function AdminDashboard() {
     (m.phone && m.phone.includes(messageSearch))
   );
 
+  const filteredGuideLeads = guideLeads.filter(g => 
+    (g.name || "").toLowerCase().includes(guideSearch.toLowerCase()) ||
+    (g.email || "").toLowerCase().includes(guideSearch.toLowerCase()) ||
+    (g.phone || "").includes(guideSearch) ||
+    (g.jointConcern || "").toLowerCase().includes(guideSearch.toLowerCase())
+  );
+
+  const filteredQuizLeads = quizLeads.filter(q => 
+    (q.name || "").toLowerCase().includes(quizSearch.toLowerCase()) ||
+    (q.email || "").toLowerCase().includes(quizSearch.toLowerCase()) ||
+    (q.phone || "").includes(quizSearch) ||
+    (q.joint || "").toLowerCase().includes(quizSearch.toLowerCase())
+  );
+
+  const getSearchPlaceholder = () => {
+    switch (activeTab) {
+      case "guides": return "Search guide downloads (name, email, joint)...";
+      case "quiz": return "Search quiz assessments...";
+      case "bookings": return "Search bookings...";
+      case "messages": return "Search messages...";
+      case "calls": return "Search calls...";
+      default: return `Search ${activeTab}...`;
+    }
+  };
+
+  const getSearchValue = () => {
+    switch (activeTab) {
+      case "guides": return guideSearch;
+      case "quiz": return quizSearch;
+      case "bookings": return bookingSearch;
+      case "messages": return messageSearch;
+      case "leads": return guideSearch || quizSearch;
+      default: return "";
+    }
+  };
+
+  const handleSearchChange = (val: string) => {
+    switch (activeTab) {
+      case "guides": setGuideSearch(val); break;
+      case "quiz": setQuizSearch(val); break;
+      case "bookings": setBookingSearch(val); break;
+      case "messages": setMessageSearch(val); break;
+      case "leads": setGuideSearch(val); setQuizSearch(val); break;
+    }
+  };
+
   if (loading) return <div className="p-8 text-center">Loading dashboard...</div>;
 
   if (!user) {
@@ -674,47 +722,80 @@ export default function AdminDashboard() {
       </header>
 
       <main className="container mx-auto px-4 py-8 space-y-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="rounded-2xl border-slate-200">
-            <CardContent className="p-6 flex items-center gap-4">
-              <div className="w-12 h-12 bg-teal-50 rounded-xl flex items-center justify-center">
-                <Calendar className="w-6 h-6 text-teal-600" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <Card 
+            className={`rounded-2xl border transition-all cursor-pointer hover:shadow-md ${activeTab === "guides" ? "border-sky-500 ring-2 ring-sky-500/20 bg-sky-50/20" : "border-slate-200 hover:border-sky-300"}`}
+            onClick={() => setActiveTab("guides")}
+          >
+            <CardContent className="p-5 flex items-center gap-3.5">
+              <div className="w-11 h-11 bg-sky-100 text-sky-600 rounded-xl flex items-center justify-center shrink-0">
+                <Download className="w-5 h-5" />
               </div>
-              <div>
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Bookings</p>
-                <p className="text-2xl font-bold text-slate-900">{bookings.length}</p>
+              <div className="min-w-0">
+                <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider truncate">Guide Downloads</p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-2xl font-bold text-slate-900">{guideLeads.length}</p>
+                  <span className="text-[11px] text-sky-600 font-medium">101 Guide</span>
+                </div>
               </div>
             </CardContent>
           </Card>
-          <Card className="rounded-2xl border-slate-200">
-            <CardContent className="p-6 flex items-center gap-4">
-              <div className="w-12 h-12 bg-sky-50 rounded-xl flex items-center justify-center">
-                <MessageSquare className="w-6 h-6 text-sky-600" />
+
+          <Card 
+            className={`rounded-2xl border transition-all cursor-pointer hover:shadow-md ${activeTab === "quiz" ? "border-teal-500 ring-2 ring-teal-500/20 bg-teal-50/20" : "border-slate-200 hover:border-teal-300"}`}
+            onClick={() => setActiveTab("quiz")}
+          >
+            <CardContent className="p-5 flex items-center gap-3.5">
+              <div className="w-11 h-11 bg-teal-100 text-teal-600 rounded-xl flex items-center justify-center shrink-0">
+                <Sparkles className="w-5 h-5" />
               </div>
-              <div>
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Messages & SMS</p>
+              <div className="min-w-0">
+                <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider truncate">Pain Quiz Leads</p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-2xl font-bold text-slate-900">{quizLeads.length}</p>
+                  <span className="text-[11px] text-teal-600 font-medium">Assessed</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card 
+            className={`rounded-2xl border transition-all cursor-pointer hover:shadow-md ${activeTab === "messages" ? "border-slate-900 ring-2 ring-slate-900/10 bg-slate-50/50" : "border-slate-200 hover:border-slate-300"}`}
+            onClick={() => setActiveTab("messages")}
+          >
+            <CardContent className="p-5 flex items-center gap-3.5">
+              <div className="w-11 h-11 bg-slate-100 text-slate-700 rounded-xl flex items-center justify-center shrink-0">
+                <MessageSquare className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider truncate">Messages & SMS</p>
                 <p className="text-2xl font-bold text-slate-900">{messages.length}</p>
               </div>
             </CardContent>
           </Card>
-          <Card className="rounded-2xl border-slate-200">
-            <CardContent className="p-6 flex items-center gap-4">
-              <div className="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center">
-                <FileText className="w-6 h-6 text-amber-600" />
+
+          <Card 
+            className={`rounded-2xl border transition-all cursor-pointer hover:shadow-md ${activeTab === "bookings" ? "border-slate-900 ring-2 ring-slate-900/10 bg-slate-50/50" : "border-slate-200 hover:border-slate-300"}`}
+            onClick={() => setActiveTab("bookings")}
+          >
+            <CardContent className="p-5 flex items-center gap-3.5">
+              <div className="w-11 h-11 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center shrink-0">
+                <Calendar className="w-5 h-5" />
               </div>
-              <div>
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Quiz & Guides</p>
-                <p className="text-2xl font-bold text-slate-900">{quizLeads.length + guideLeads.length}</p>
+              <div className="min-w-0">
+                <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider truncate">Bookings</p>
+                <p className="text-2xl font-bold text-slate-900">{bookings.length}</p>
               </div>
             </CardContent>
           </Card>
+
           <Card className="rounded-2xl border-slate-200">
-            <CardContent className="p-6 flex items-center gap-4">
-              <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center">
-                <Users className="w-6 h-6 text-indigo-600" />
+            <CardContent className="p-5 flex items-center gap-3.5">
+              <div className="w-11 h-11 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center shrink-0">
+                <Users className="w-5 h-5" />
               </div>
-              <div>
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Total Leads</p>
+              <div className="min-w-0">
+                <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider truncate">Total Unique Leads</p>
                 <p className="text-2xl font-bold text-slate-900">
                   {new Set([
                     ...bookings.map(b => b.email), 
@@ -730,37 +811,65 @@ export default function AdminDashboard() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <TabsList className="bg-white border border-slate-200 p-1 rounded-xl h-auto flex flex-wrap gap-1">
-              <TabsTrigger value="messages" className="rounded-lg px-4 py-2 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+            <TabsList className="bg-white border border-slate-200 p-1.5 rounded-2xl h-auto flex flex-wrap gap-1.5 shadow-xs">
+              <TabsTrigger 
+                value="guides" 
+                className="rounded-xl px-4 py-2.5 text-xs font-semibold data-[state=active]:bg-sky-600 data-[state=active]:text-white flex items-center gap-1.5 transition-all shadow-xs"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Guide Downloads ({guideLeads.length})
+              </TabsTrigger>
+              <TabsTrigger 
+                value="messages" 
+                className="rounded-xl px-4 py-2.5 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white flex items-center gap-1.5 transition-all shadow-xs"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
                 Messages ({messages.length})
               </TabsTrigger>
-              <TabsTrigger value="bookings" className="rounded-lg px-4 py-2 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+              <TabsTrigger 
+                value="bookings" 
+                className="rounded-xl px-4 py-2.5 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white flex items-center gap-1.5 transition-all shadow-xs"
+              >
+                <Calendar className="w-3.5 h-3.5" />
                 Bookings ({bookings.length})
               </TabsTrigger>
-              <TabsTrigger value="leads" className="rounded-lg px-4 py-2 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">
-                Quiz & Guides ({quizLeads.length + guideLeads.length})
+              <TabsTrigger 
+                value="quiz" 
+                className="rounded-xl px-4 py-2.5 text-xs font-semibold data-[state=active]:bg-teal-700 data-[state=active]:text-white flex items-center gap-1.5 transition-all shadow-xs"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                Pain Quiz ({quizLeads.length})
               </TabsTrigger>
-              <TabsTrigger value="calls" className="rounded-lg px-4 py-2 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+              <TabsTrigger 
+                value="calls" 
+                className="rounded-xl px-4 py-2.5 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white flex items-center gap-1.5 transition-all shadow-xs"
+              >
+                <Phone className="w-3.5 h-3.5" />
                 Calls ({callLogs.length})
               </TabsTrigger>
-              <TabsTrigger value="analytics" className="rounded-lg px-4 py-2 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+              <TabsTrigger 
+                value="analytics" 
+                className="rounded-xl px-4 py-2.5 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white flex items-center gap-1.5 transition-all shadow-xs"
+              >
+                <Activity className="w-3.5 h-3.5" />
                 Analytics
               </TabsTrigger>
-              <TabsTrigger value="hologram" className="rounded-lg px-4 py-2 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+              <TabsTrigger 
+                value="hologram" 
+                className="rounded-xl px-4 py-2.5 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white flex items-center gap-1.5 transition-all shadow-xs"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
                 Hologram
               </TabsTrigger>
             </TabsList>
 
-            <div className="relative w-full sm:w-64">
+            <div className="relative w-full sm:w-72">
               <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <Input 
-                placeholder={`Search ${activeTab}...`} 
+                placeholder={getSearchPlaceholder()} 
                 className="pl-10 rounded-xl border-slate-200 bg-white"
-                value={activeTab === "bookings" ? bookingSearch : messageSearch}
-                onChange={(e) => {
-                  if (activeTab === "bookings") setBookingSearch(e.target.value);
-                  else setMessageSearch(e.target.value);
-                }}
+                value={getSearchValue()}
+                onChange={(e) => handleSearchChange(e.target.value)}
               />
             </div>
           </div>
@@ -973,6 +1082,176 @@ export default function AdminDashboard() {
             </Card>
           </TabsContent>
 
+          {/* Dedicated Guide Downloads Tab */}
+          <TabsContent value="guides">
+            <Card className="rounded-2xl border-slate-200 overflow-hidden shadow-xs">
+              <CardHeader className="bg-slate-50/80 border-b border-slate-200 py-4 px-6 flex flex-row items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-sky-100 flex items-center justify-center text-sky-600 shadow-xs">
+                    <Download className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                      Free Guide Downloads ({filteredGuideLeads.length})
+                    </CardTitle>
+                    <p className="text-xs text-slate-500">Patients who requested regenerative medicine PDF guides</p>
+                  </div>
+                </div>
+                <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-700 font-semibold px-2.5 py-0.5">
+                  Regenerative 101 & Guides
+                </Badge>
+              </CardHeader>
+              <div className="overflow-x-auto">
+                <Table className="min-w-[700px]">
+                  <TableHeader className="bg-slate-50">
+                    <TableRow>
+                      <TableHead className="w-44">Date & Time</TableHead>
+                      <TableHead className="w-48">Patient Name</TableHead>
+                      <TableHead className="w-60">Email & Phone</TableHead>
+                      <TableHead className="w-44">Joint of Concern</TableHead>
+                      <TableHead className="text-right w-32 pr-6">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredGuideLeads.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-16 text-slate-400">
+                          <div className="max-w-xs mx-auto space-y-2 text-center">
+                            <Download className="w-8 h-8 mx-auto text-slate-300 stroke-[1.5]" />
+                            <p className="font-medium text-slate-600">No guide downloads found</p>
+                            <p className="text-xs text-slate-400">
+                              {guideSearch ? "No downloads matched your search criteria." : "When patients download the free guide on your website, their contact details and a delete button will appear here."}
+                            </p>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredGuideLeads.map((g) => (
+                        <TableRow key={g.id} className="hover:bg-slate-50/80 transition-colors">
+                          <TableCell className="text-xs text-slate-600 whitespace-nowrap font-medium">
+                            {formatSafeDate(g.createdAt)}
+                          </TableCell>
+                          <TableCell className="font-bold text-slate-900">{g.name}</TableCell>
+                          <TableCell className="text-sm">
+                            <div className="flex flex-col">
+                              <span className="font-medium text-slate-800">{g.email}</span>
+                              <span className="text-slate-500 text-xs font-mono">{g.phone || "No phone provided"}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="border-slate-200 bg-slate-50 text-slate-700 font-medium">
+                              {g.jointConcern || "General Orthopedic"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right pr-6">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="border-red-200 bg-red-50/80 text-red-600 hover:bg-red-100 hover:text-red-700 hover:border-red-300 rounded-xl h-8 px-3 font-semibold text-xs inline-flex items-center gap-1.5 shadow-xs transition-colors shrink-0 cursor-pointer"
+                              onClick={() => setDeleteConfirm({ type: "guide_downloads", id: g.id })}
+                              title="Delete this guide download"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                              <span>Delete</span>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
+          </TabsContent>
+
+          {/* Dedicated Pain Quiz Tab */}
+          <TabsContent value="quiz">
+            <Card className="rounded-2xl border-slate-200 overflow-hidden shadow-xs">
+              <CardHeader className="bg-slate-50/80 border-b border-slate-200 py-4 px-6 flex flex-row items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-teal-100 flex items-center justify-center text-teal-700 shadow-xs">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                      Pain Quiz Assessments ({filteredQuizLeads.length})
+                    </CardTitle>
+                    <p className="text-xs text-slate-500">Patients who completed the interactive candidacy evaluation</p>
+                  </div>
+                </div>
+                <Badge variant="outline" className="border-teal-200 bg-teal-50 text-teal-700 font-semibold px-2.5 py-0.5">
+                  High Intent Candidates
+                </Badge>
+              </CardHeader>
+              <div className="overflow-x-auto">
+                <Table className="min-w-[800px]">
+                  <TableHeader className="bg-slate-50">
+                    <TableRow>
+                      <TableHead className="w-44">Date</TableHead>
+                      <TableHead className="w-48">Patient</TableHead>
+                      <TableHead className="w-60">Contact</TableHead>
+                      <TableHead className="w-40">Joint / Injury</TableHead>
+                      <TableHead>Recommendations</TableHead>
+                      <TableHead className="text-right w-32 pr-6">Action</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredQuizLeads.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-16 text-slate-400">
+                          <div className="max-w-xs mx-auto space-y-2 text-center">
+                            <Sparkles className="w-8 h-8 mx-auto text-slate-300 stroke-[1.5]" />
+                            <p className="font-medium text-slate-600">No quiz submissions found</p>
+                            <p className="text-xs text-slate-400">
+                              {quizSearch ? "No submissions matched your search criteria." : "When patients complete the quiz, their results and delete button will appear here."}
+                            </p>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredQuizLeads.map((q) => (
+                        <TableRow key={q.id} className="hover:bg-slate-50/80 transition-colors">
+                          <TableCell className="text-xs text-slate-600 whitespace-nowrap font-medium">
+                            {formatSafeDate(q.createdAt)}
+                          </TableCell>
+                          <TableCell className="font-bold text-slate-900">{q.name}</TableCell>
+                          <TableCell className="text-sm">
+                            <div className="flex flex-col">
+                              <span className="font-medium text-slate-800">{q.email}</span>
+                              <span className="text-slate-500 text-xs font-mono">{q.phone}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className="bg-teal-50 text-teal-800 border-teal-200 font-medium">
+                              {q.joint}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs text-slate-600">
+                            {Array.isArray(q.recommendations) 
+                              ? q.recommendations.map((r: any) => r.title || r).join(", ")
+                              : "Wharton's Jelly, Exosomes, PRP"}
+                          </TableCell>
+                          <TableCell className="text-right pr-6">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="border-red-200 bg-red-50/80 text-red-600 hover:bg-red-100 hover:text-red-700 hover:border-red-300 rounded-xl h-8 px-3 font-semibold text-xs inline-flex items-center gap-1.5 shadow-xs transition-colors shrink-0 cursor-pointer"
+                              onClick={() => setDeleteConfirm({ type: "pain_quiz_results", id: q.id })}
+                              title="Delete quiz submission"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                              <span>Delete</span>
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
+          </TabsContent>
+
           {/* Leads Tab: Pain Quiz and Guide Downloads */}
           <TabsContent value="leads">
             <div className="space-y-6">
@@ -997,7 +1276,7 @@ export default function AdminDashboard() {
                       <TableHead>Contact</TableHead>
                       <TableHead>Joint / Injury</TableHead>
                       <TableHead>Biologic Recommendations</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead className="text-right pr-6">Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1030,15 +1309,16 @@ export default function AdminDashboard() {
                               ? q.recommendations.map((r: any) => r.title || r).join(", ")
                               : "Wharton's Jelly, Exosomes, PRP"}
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="text-right pr-6">
                             <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg h-8 w-8"
+                              variant="outline" 
+                              size="sm" 
+                              className="border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 hover:border-red-300 rounded-xl h-8 px-3 font-semibold text-xs inline-flex items-center gap-1.5 shadow-xs transition-colors shrink-0 cursor-pointer"
                               onClick={() => setDeleteConfirm({ type: "pain_quiz_results", id: q.id })}
                               title="Delete quiz submission"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                              <span>Delete</span>
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -1068,7 +1348,7 @@ export default function AdminDashboard() {
                       <TableHead>Name</TableHead>
                       <TableHead>Email & Phone</TableHead>
                       <TableHead>Joint of Concern</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead className="text-right pr-6">Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1096,15 +1376,16 @@ export default function AdminDashboard() {
                               {g.jointConcern || "General Orthopedic"}
                             </Badge>
                           </TableCell>
-                          <TableCell className="text-right">
+                          <TableCell className="text-right pr-6">
                             <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg h-8 w-8"
+                              variant="outline" 
+                              size="sm" 
+                              className="border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 hover:border-red-300 rounded-xl h-8 px-3 font-semibold text-xs inline-flex items-center gap-1.5 shadow-xs transition-colors shrink-0 cursor-pointer"
                               onClick={() => setDeleteConfirm({ type: "guide_downloads", id: g.id })}
                               title="Delete guide download"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                              <span>Delete</span>
                             </Button>
                           </TableCell>
                         </TableRow>
