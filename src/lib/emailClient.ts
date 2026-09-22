@@ -17,7 +17,8 @@ export async function triggerNurtureSequence(params: TriggerNurtureParams) {
       body: JSON.stringify(params),
     });
 
-    const data = await res.json();
+    const contentType = res.headers.get("content-type") || "";
+    const data = res.ok && contentType.includes("application/json") ? await res.json() : { success: false, note: "Static hosting without email backend" };
     
     // Track analytics event
     trackEvent(

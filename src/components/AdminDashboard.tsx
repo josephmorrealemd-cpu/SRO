@@ -67,7 +67,8 @@ import {
   Clock,
   Sparkles,
   RefreshCw,
-  Phone
+  Phone,
+  Home
 } from "lucide-react";
 import { toast } from "sonner";
 import { 
@@ -458,8 +459,13 @@ export default function AdminDashboard() {
   };
 
   const handleLogout = async () => {
-    await signOut(auth);
-    toast.success("Logged out");
+    try {
+      await signOut(auth);
+      toast.success("Signed out successfully");
+      window.location.href = "/";
+    } catch (e) {
+      window.location.href = "/";
+    }
   };
 
   const handleDelete = async () => {
@@ -619,29 +625,43 @@ export default function AdminDashboard() {
               </Badge>
             )}
           </div>
-          <div className="flex items-center gap-3 md:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Button 
               variant="default" 
               size="sm" 
               disabled={isSyncing}
-              className="rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-semibold flex items-center gap-2 text-xs md:text-sm"
+              className="rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-semibold flex items-center gap-1.5 text-xs"
               onClick={handleSyncCommunications}
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />
-              {isSyncing ? "Syncing..." : "Sync Messages"}
+              <span className="hidden sm:inline">{isSyncing ? "Syncing..." : "Sync Messages"}</span>
             </Button>
-            <Button variant="ghost" size="sm" className="rounded-lg text-slate-600 hidden md:flex" onClick={() => window.location.href = "/"}>
-              <ExternalLink className="w-4 h-4 mr-2" />
-              View Website
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="rounded-lg text-slate-700 hover:text-slate-900 border-slate-200 flex items-center gap-1.5 text-xs" 
+              onClick={() => window.location.href = "/"}
+            >
+              <Home className="w-3.5 h-3.5" />
+              <span>Home</span>
             </Button>
-            <Button variant="outline" size="sm" className="rounded-lg border-teal-200 text-teal-700 bg-teal-100 hover:bg-teal-200 hidden md:flex font-semibold" onClick={() => window.location.href = "/admin/phone"}>
-              <Phone className="w-4 h-4 mr-2" />
-              Phone Console
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="rounded-lg border-teal-200 text-teal-700 bg-teal-50 hover:bg-teal-100 hidden md:flex font-semibold text-xs" 
+              onClick={() => window.location.href = "/admin/phone"}
+            >
+              <Phone className="w-3.5 h-3.5 mr-1" />
+              Phone
             </Button>
-            <span className="text-xs text-slate-500 hidden sm:block">{user.email}</span>
-            <Button onClick={handleLogout} variant="ghost" size="sm" className="rounded-lg text-slate-600">
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
+            <Button 
+              onClick={handleLogout} 
+              variant="ghost" 
+              size="sm" 
+              className="rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center gap-1.5 text-xs font-semibold"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Sign Out</span>
             </Button>
           </div>
         </div>

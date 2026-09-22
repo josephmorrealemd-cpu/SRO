@@ -25,7 +25,19 @@ import {
   HelpCircle,
   Video,
   Mic,
-  MicOff
+  MicOff,
+  Settings,
+  Copy,
+  Check,
+  AlertTriangle,
+  ExternalLink,
+  Server,
+  Wifi,
+  WifiOff,
+  RefreshCw,
+  Home,
+  LayoutDashboard,
+  LogOut
 } from "lucide-react";
 
 interface CallTranscriptItem {
@@ -60,9 +72,17 @@ export default function AdminPhoneConsole() {
   // Twilio Browser WebRTC Phone Device States
   const [answeringMode, setAnsweringMode] = useState<"voice" | "text">("voice");
   const [twilioToken, setTwilioToken] = useState<string | null>(null);
+  const [twilioWarning, setTwilioWarning] = useState<string | null>(null);
   const [device, setDevice] = useState<any>(null);
   const [deviceState, setDeviceState] = useState<"unregistered" | "ready" | "ringing" | "connected" | "error">("unregistered");
+  const [deviceErrorMsg, setDeviceErrorMsg] = useState<string | null>(null);
   const [activeConnection, setActiveConnection] = useState<any>(null);
+
+  // Diagnostics & Webhook configuration modal
+  const [diagnosticsModalOpen, setDiagnosticsModalOpen] = useState(false);
+  const [diagnosticsData, setDiagnosticsData] = useState<any>(null);
+  const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   // Live Speech Mic-Simulation variables
   const [micActive, setMicActive] = useState(false);
@@ -137,6 +157,30 @@ export default function AdminPhoneConsole() {
   };
 
   // 1b. Real Twilio Browser Device Setup
+  const loadDiagnostics = async () => {
+    setDiagnosticsLoading(true);
+    try {
+      const res = await fetch("/api/twilio/diagnostics");
+      if (res.ok) {
+        const data = await res.json();
+        setDiagnosticsData(data);
+      } else {
+        const text = await res.text();
+        setDiagnosticsData({ error: `Server returned HTTP ${res.status}: ${text.substring(0, 100)}` });
+      }
+    } catch (e: any) {
+      setDiagnosticsData({ error: `Diagnostics fetch failed: ${e.message}. If running on static Netlify hosting, backend API routes (/api/*) require a running server or proxy.` });
+    } finally {
+      setDiagnosticsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user && isAdmin) {
+      loadDiagnostics();
+    }
+  }, [user, isAdmin]);
+
   useEffect(() => {
     if (!user || !isAdmin) return;
 
@@ -166,24 +210,39 @@ export default function AdminPhoneConsole() {
         }
         const Device = Twilio.Device;
         const res = await fetch("/api/twilio/token");
-        if (!res.ok) return;
+        if (!res.ok) {
+          const bodyText = await res.text();
+          setDeviceErrorMsg(`Failed to fetch Twilio token (HTTP ${res.status}): ${bodyText.substring(0, 60)}`);
+          setDeviceState("error");
+          return;
+        }
 
         const data = await res.json();
+        if (data.warning) {
+          setTwilioWarning(data.warning);
+        }
+
         if (data.token) {
           console.log("Setting up real Twilio WebRTC client device...");
           setTwilioToken(data.token);
+          setTwilioWarning(null);
 
-          // Instantiate Twilio Device
-          dev = new Device(data.token);
+          // Instantiate Twilio Device with codec preferences
+          dev = new Device(data.token, {
+            codecPreferences: ["opus", "pcmu"],
+            enableRingingState: true
+          });
 
           dev.on("registered", () => {
             console.log("Twilio WebRTC Client registered successfully.");
             setDeviceState("ready");
+            setDeviceErrorMsg(null);
           });
 
           dev.on("error", (error: any) => {
             console.error("Twilio Device WebRTC failure:", error);
             setDeviceState("error");
+            setDeviceErrorMsg(error?.message || "WebRTC handset error");
           });
 
           dev.on("incoming", (conn: any) => {
@@ -192,14 +251,17 @@ export default function AdminPhoneConsole() {
             setActiveConnection(conn);
 
             // Auto select active call state using the call details if present
+            const callSid = conn?.parameters?.CallSid || "CALL_" + Date.now();
+            const fromNum = conn?.parameters?.From || "Anonymous";
+
             setActiveCall({
-              id: conn.parameters.CallSid,
-              callSid: conn.parameters.CallSid,
-              callerPhone: conn.parameters.From || "Anonymous",
+              id: callSid,
+              callSid: callSid,
+              callerPhone: fromNum,
               callerName: "Incoming Patient Caller",
               status: "ringing",
               transcript: [
-                { speaker: "system", text: "Incoming WebRTC audio connection detected... answer to connect line.", timestamp: Date.now() }
+                { speaker: "system", text: "Incoming WebRTC audio connection detected... click Accept to connect line.", timestamp: Date.now() }
               ],
               queue: [],
               createdAt: new Date().toISOString(),
@@ -217,13 +279,22 @@ export default function AdminPhoneConsole() {
               setActiveCall((prev: any) => prev ? { ...prev, status: "completed" } : null);
               loadCallsHistory();
             });
+
+            conn.on("error", (callErr: any) => {
+              console.error("Twilio Call error:", callErr);
+              setDeviceState("ready");
+            });
           });
 
-          dev.register();
+          await dev.register();
           setDevice(dev);
+        } else if (data.warning) {
+          setDeviceState("unregistered");
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Could not register Twilio browser handset capabilities:", err);
+        setDeviceErrorMsg(err?.message || "Could not register WebRTC client");
+        setDeviceState("error");
       }
     };
 
@@ -755,14 +826,74 @@ export default function AdminPhoneConsole() {
               </span>
             )}
           </div>
+
           <button
-            onClick={() => signOut(auth)}
-            className="text-xs text-slate-400 hover:text-white transition underline"
+            onClick={() => {
+              loadDiagnostics();
+              setDiagnosticsModalOpen(true);
+            }}
+            className="flex items-center gap-1.5 text-xs bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 border border-teal-500/30 px-3 py-1.5 rounded-full transition font-medium"
+            title="Open Twilio & Webhook Diagnostics"
           >
-            Log Out Console
+            <Settings className="w-3.5 h-3.5" />
+            <span>Twilio Diagnostics</span>
+            {(!twilioToken || deviceState === "error" || deviceState === "unregistered") && (
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping ml-0.5" />
+            )}
+          </button>
+
+          <Link
+            to="/admin"
+            className="flex items-center gap-1 text-xs text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-full transition"
+            title="Return to Admin Dashboard"
+          >
+            <LayoutDashboard className="w-3.5 h-3.5" />
+            <span>Dashboard</span>
+          </Link>
+
+          <Link
+            to="/"
+            className="flex items-center gap-1 text-xs text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-full transition"
+            title="Go to Website Home"
+          >
+            <Home className="w-3.5 h-3.5" />
+            <span>Home</span>
+          </Link>
+
+          <button
+            onClick={async () => {
+              await signOut(auth);
+              window.location.href = "/";
+            }}
+            className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 transition px-2 py-1"
+            title="Sign out and return to home"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            <span>Sign Out</span>
           </button>
         </div>
       </header>
+
+      {/* Top Telephony Health Alert Banner if not registered or warning */}
+      {(!twilioToken || deviceState === "error" || twilioWarning) && (
+        <div className="bg-amber-500/10 border-b border-amber-500/20 px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs text-amber-200">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+            <span>
+              <b>Twilio WebRTC Alert:</b> {deviceErrorMsg || twilioWarning || "Browser phone handset is waiting for Twilio token configuration or webhook linkage."}
+            </span>
+          </div>
+          <button
+            onClick={() => {
+              loadDiagnostics();
+              setDiagnosticsModalOpen(true);
+            }}
+            className="underline font-semibold text-amber-300 hover:text-amber-100 flex items-center gap-1"
+          >
+            Open Webhook Setup Guide & Diagnostics <ArrowRight className="w-3 h-3" />
+          </button>
+        </div>
+      )}
 
       {/* Main Grid Workspace */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-6">
@@ -1174,6 +1305,256 @@ export default function AdminPhoneConsole() {
         </div>
 
       </div>
+
+      {/* Twilio & Webhook Diagnostics Modal */}
+      {diagnosticsModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-teal-500/10 border border-teal-500/30 rounded-xl text-teal-400">
+                  <Server className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-white">Twilio Telephony & Webhook Diagnostics</h3>
+                  <p className="text-xs text-slate-400">Live configuration and connectivity verification</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={loadDiagnostics}
+                  disabled={diagnosticsLoading}
+                  className="p-2 text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-800 rounded-lg transition disabled:opacity-50"
+                  title="Refresh Diagnostics"
+                >
+                  <RefreshCw className={`w-4 h-4 ${diagnosticsLoading ? "animate-spin" : ""}`} />
+                </button>
+                <button
+                  onClick={() => setDiagnosticsModalOpen(false)}
+                  className="p-2 text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-800 rounded-lg transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-6 text-sm">
+              {/* Webhook URLs for Twilio Console */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-teal-400 font-mono">
+                    Required Twilio Console Webhook URLs
+                  </h4>
+                  <span className="text-[11px] text-slate-400">Copy & paste into Twilio Console</span>
+                </div>
+
+                {/* Voice Webhook */}
+                <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-slate-200">1. Phone Number Voice Webhook ("A CALL COMES IN"):</span>
+                    <span className="text-[10px] font-mono text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded border border-teal-500/20">HTTP POST</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      readOnly
+                      value={diagnosticsData?.server?.voiceWebhookUrl || (typeof window !== "undefined" ? `${window.location.origin}/api/twilio/voice` : "")}
+                      className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 select-all"
+                    />
+                    <button
+                      onClick={() => {
+                        const url = diagnosticsData?.server?.voiceWebhookUrl || `${window.location.origin}/api/twilio/voice`;
+                        navigator.clipboard.writeText(url);
+                        setCopiedField("voiceWebhook");
+                        setTimeout(() => setCopiedField(null), 2000);
+                      }}
+                      className="shrink-0 bg-teal-500 hover:bg-teal-600 text-slate-950 text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5 transition"
+                    >
+                      {copiedField === "voiceWebhook" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedField === "voiceWebhook" ? "Copied" : "Copy"}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Set in Twilio Console → <b>Phone Numbers</b> → <b>Active Numbers</b> → Click your number (<b>+1 720-776-9165</b>) → Under <b>Voice & Fax</b>, set "A CALL COMES IN" to <b>Webhook</b> and paste this URL.
+                  </p>
+                </div>
+
+                {/* TwiML App Webhook */}
+                <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-slate-200">2. TwiML App Voice Request URL:</span>
+                    <span className="text-[10px] font-mono text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded border border-teal-500/20">HTTP POST</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      readOnly
+                      value={diagnosticsData?.server?.voiceWebhookUrl || (typeof window !== "undefined" ? `${window.location.origin}/api/twilio/voice` : "")}
+                      className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 select-all"
+                    />
+                    <button
+                      onClick={() => {
+                        const url = diagnosticsData?.server?.voiceWebhookUrl || `${window.location.origin}/api/twilio/voice`;
+                        navigator.clipboard.writeText(url);
+                        setCopiedField("twimlApp");
+                        setTimeout(() => setCopiedField(null), 2000);
+                      }}
+                      className="shrink-0 bg-teal-500 hover:bg-teal-600 text-slate-950 text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5 transition"
+                    >
+                      {copiedField === "twimlApp" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedField === "twimlApp" ? "Copied" : "Copy"}
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Set in Twilio Console → <b>Voice</b> → <b>TwiML</b> → <b>TwiML Apps</b> → Click your app (<b>AP7cbcd3ed4a7920a5c9cf50a555412719</b>) → set "Voice Request URL" to this URL.
+                  </p>
+                </div>
+              </div>
+
+              {/* Status Checks */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-teal-400 font-mono">
+                  Live System Health Checks
+                </h4>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {/* WebRTC Client */}
+                  <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-medium text-white">Browser Softphone (WebRTC)</p>
+                      <p className="text-[10px] text-slate-400 font-mono">
+                        State: {deviceState.toUpperCase()}
+                      </p>
+                    </div>
+                    <span className={`text-xs px-2.5 py-1 rounded-full font-mono font-semibold ${
+                      deviceState === "ready" || deviceState === "connected"
+                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                        : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                    }`}>
+                      {deviceState === "ready" ? "READY" : deviceState === "connected" ? "CONNECTED" : deviceState === "error" ? "ERROR" : "PENDING"}
+                    </span>
+                  </div>
+
+                  {/* Twilio Token Status */}
+                  <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-medium text-white">Twilio Capability Token</p>
+                      <p className="text-[10px] text-slate-400 font-mono">
+                        {twilioToken ? "Issued & Active (3600s TTL)" : "Not Issued"}
+                      </p>
+                    </div>
+                    <span className={`text-xs px-2.5 py-1 rounded-full font-mono font-semibold ${
+                      twilioToken
+                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                        : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                    }`}>
+                      {twilioToken ? "ACTIVE" : "MISSING"}
+                    </span>
+                  </div>
+
+                  {/* Presence Heartbeat */}
+                  <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-medium text-white">Admin Presence Heartbeat</p>
+                      <p className="text-[10px] text-slate-400 font-mono">
+                        Online Admins: {activeAdminCount}
+                      </p>
+                    </div>
+                    <span className={`text-xs px-2.5 py-1 rounded-full font-mono font-semibold ${
+                      presenceOnline
+                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                        : "bg-red-500/10 text-red-400 border border-red-500/20"
+                    }`}>
+                      {presenceOnline ? "ONLINE" : "OFFLINE"}
+                    </span>
+                  </div>
+
+                  {/* SSE Event Stream */}
+                  <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-medium text-white">Real-Time Event Stream</p>
+                      <p className="text-[10px] text-slate-400 font-mono">
+                        /api/twilio/events
+                      </p>
+                    </div>
+                    <span className="text-xs px-2.5 py-1 rounded-full font-mono font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      CONNECTED
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Environment Variables Status */}
+              {diagnosticsData?.environment && (
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-teal-400 font-mono">
+                    Backend Environment Variables
+                  </h4>
+                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2 text-xs font-mono">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">TWILIO_ACCOUNT_SID:</span>
+                      <span className={diagnosticsData.environment.hasAccountSid ? "text-emerald-400" : "text-red-400"}>
+                        {diagnosticsData.environment.accountSidMasked || "MISSING"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">TWILIO_API_KEY:</span>
+                      <span className={diagnosticsData.environment.hasApiKey ? "text-emerald-400" : "text-red-400"}>
+                        {diagnosticsData.environment.apiKeyMasked || "MISSING"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">TWILIO_API_SECRET:</span>
+                      <span className={diagnosticsData.environment.hasApiSecret ? "text-emerald-400" : "text-red-400"}>
+                        {diagnosticsData.environment.hasApiSecret ? "CONFIGURED (SECRET)" : "MISSING"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">TWILIO_TWIML_APP_SID:</span>
+                      <span className={diagnosticsData.environment.hasTwimlAppSid ? "text-emerald-400" : "text-red-400"}>
+                        {diagnosticsData.environment.twimlAppSidMasked || "MISSING"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">TWILIO_NUMBER:</span>
+                      <span className={diagnosticsData.environment.hasTwilioNumber ? "text-emerald-400" : "text-red-400"}>
+                        {diagnosticsData.environment.twilioNumber || "MISSING"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400">GEMINI_API_KEY:</span>
+                      <span className={diagnosticsData.environment.hasGeminiKey ? "text-emerald-400" : "text-amber-400"}>
+                        {diagnosticsData.environment.hasGeminiKey ? "CONFIGURED" : "OMITTED"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Netlify Deployment Notice */}
+              <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-2">
+                <div className="flex items-center gap-2 text-xs font-semibold text-slate-200">
+                  <AlertTriangle className="w-4 h-4 text-amber-400" />
+                  <span>Important Note on Netlify & Serverless Hosting</span>
+                </div>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Twilio requires an active Node server endpoint to receive HTTP POST webhooks (<code className="text-teal-400 font-mono">/api/twilio/voice</code>) and mint WebRTC tokens. If deploying on standard static Netlify CDN, ensure the backend is running as a container (e.g. Google Cloud Run, Render, Railway) and proxied in Netlify's redirects file, or test in this active preview environment.
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3 border-t border-slate-800 bg-slate-950/60 flex items-center justify-end">
+              <button
+                onClick={() => setDiagnosticsModalOpen(false)}
+                className="bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold px-4 py-2 rounded-lg transition"
+              >
+                Close Diagnostics
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
