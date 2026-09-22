@@ -78,7 +78,7 @@ service cloud.firestore {
         data.keys().hasOnly(['name', 'email', 'phone', 'date', 'type', 'createdAt', 'condition', 'status', 'reportName', 'reportUrl']) &&
         data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
         isValidEmail(data.email) &&
-        data.phone is string && data.phone.size() >= 7 && data.phone.size() <= 20 &&
+        data.phone is string && data.phone.size() <= 35 &&
         isValidDateString(data.date) &&
         data.type is string && data.type.size() >= 1 && data.type.size() <= 100 &&
         data.status in ['pending', 'confirmed', 'cancelled'] &&
@@ -89,12 +89,12 @@ service cloud.firestore {
 
     function isValidContactMessage(data) {
       return data.keys().hasAll(['name', 'email', 'message', 'createdAt']) &&
-        data.keys().hasOnly(['name', 'email', 'phone', 'message', 'createdAt']) &&
+        data.keys().hasOnly(['name', 'email', 'phone', 'message', 'createdAt', 'source', 'direction', 'status', 'notes', 'smsSid']) &&
         data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
         isValidEmail(data.email) &&
         data.message is string && data.message.size() >= 1 && data.message.size() <= 5000 &&
         data.createdAt is timestamp &&
-        (!('phone' in data) || (data.phone is string && data.phone.size() >= 7 && data.phone.size() <= 20));
+        (!('phone' in data) || (data.phone is string && data.phone.size() <= 35));
     }
 
     function isValidAnalyticsEvent(data) {

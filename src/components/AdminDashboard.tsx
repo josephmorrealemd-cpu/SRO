@@ -292,10 +292,11 @@ export default function AdminDashboard() {
   }, []);
 
   const fetchAllData = async () => {
-    // 1. Fetch from server-side unified inbox endpoint (immune to client-side rule/index hurdles)
+    // 1. Fetch from server-side unified inbox endpoint if available
     try {
       const res = await fetch("/api/admin/inbox");
-      if (res.ok) {
+      const contentType = res.headers.get("content-type") || "";
+      if (res.ok && contentType.includes("application/json")) {
         const data = await res.json();
         if (Array.isArray(data.messages)) setMessages(data.messages);
         if (Array.isArray(data.bookings)) setBookings(data.bookings);
@@ -303,8 +304,8 @@ export default function AdminDashboard() {
         if (Array.isArray(data.guideDownloads)) setGuideLeads(data.guideDownloads);
         if (Array.isArray(data.calls)) setCallLogs(data.calls);
       }
-    } catch (apiErr) {
-      console.warn("Inbox API fetch error, checking Firestore directly:", apiErr);
+    } catch {
+      // Backend not running on static host (e.g. Netlify) - fallback to Firestore directly
     }
 
     // 2. Client-side Firestore collection fetching with independent safety blocks
@@ -319,7 +320,7 @@ export default function AdminDashboard() {
           const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt || 0).getTime();
           return timeB - timeA;
         });
-        if (mList.length > 0) setMessages(mList);
+        setMessages(mList);
       } catch (e) {
         console.error("Messages fetch error:", e);
       }
@@ -332,7 +333,7 @@ export default function AdminDashboard() {
           const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt || 0).getTime();
           return timeB - timeA;
         });
-        if (bList.length > 0) setBookings(bList);
+        setBookings(bList);
       } catch (e) {
         console.error("Bookings fetch error:", e);
       }
@@ -340,19 +341,34 @@ export default function AdminDashboard() {
       try {
         const qSnapshot = await getDocs(collection(db, "pain_quiz_results"));
         const qList = qSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as QuizLead));
-        if (qList.length > 0) setQuizLeads(qList);
+        qList.sort((a: any, b: any) => {
+          const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : new Date(a.createdAt || 0).getTime();
+          const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt || 0).getTime();
+          return timeB - timeA;
+        });
+        setQuizLeads(qList);
       } catch (e) {}
 
       try {
         const gSnapshot = await getDocs(collection(db, "guide_downloads"));
         const gList = gSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as GuideLead));
-        if (gList.length > 0) setGuideLeads(gList);
+        gList.sort((a: any, b: any) => {
+          const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : new Date(a.createdAt || 0).getTime();
+          const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt || 0).getTime();
+          return timeB - timeA;
+        });
+        setGuideLeads(gList);
       } catch (e) {}
 
       try {
         const cSnapshot = await getDocs(collection(db, "calls"));
         const cList = cSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as CallLogItem));
-        if (cList.length > 0) setCallLogs(cList);
+        cList.sort((a: any, b: any) => {
+          const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : new Date(a.createdAt || 0).getTime();
+          const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt || 0).getTime();
+          return timeB - timeA;
+        });
+        setCallLogs(cList);
       } catch (e) {}
 
       try {
@@ -392,22 +408,37 @@ export default function AdminDashboard() {
 
   const handleSyncCommunications = async () => {
     setIsSyncing(true);
+    let twilioSynced = false;
     try {
-      const res = await fetch("/api/twilio/sync", { method: "POST" });
-      const data = await res.json();
-      if (data.success) {
+      // 1. Attempt Twilio sync if a backend server is active
+      try {
+        const res = await fetch("/api/twilio/sync", { method: "POST" });
+        const contentType = res.headers.get("content-type") || "";
+        if (res.ok && contentType.includes("application/json")) {
+          const data = await res.json();
+          if (data.success) {
+            twilioSynced = true;
+          }
+        }
+      } catch {
+        // Backend not available on static hosting (Netlify) - continue with direct database sync
+      }
+
+      // 2. Fetch directly from Firestore database
+      await fetchAllData();
+
+      if (twilioSynced) {
         toast.success("Synchronized Communications", {
-          description: data.message || `Checked Twilio and updated all messages and recordings.`
+          description: "Synced latest SMS & voicemails from Twilio, plus website inquiries."
         });
       } else {
-        toast.info("Sync Status", {
-          description: data.message || "Communications synced."
+        toast.success("Database Refreshed", {
+          description: "Loaded latest website messages, consultation bookings, and quiz leads."
         });
       }
-      await fetchAllData();
     } catch (err: any) {
       console.error("Sync error:", err);
-      toast.error("Failed to sync communications", {
+      toast.error("Failed to refresh", {
         description: err.message
       });
     } finally {
