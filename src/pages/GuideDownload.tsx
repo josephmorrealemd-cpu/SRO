@@ -38,32 +38,48 @@ export default function GuideDownload() {
     e.preventDefault();
     setIsSubmitting(true);
 
+    // 1. Trigger browser PDF download immediately so patient gets the file regardless of network/rule status
+    try {
+      const link = document.createElement("a");
+      link.href = guidePdfPath;
+      link.download = "Biologic-Regeneration-101-Summit-Orthopedics.pdf";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setIsDownloaded(true);
+    } catch (dlErr) {
+      console.warn("Direct download link trigger failed:", dlErr);
+    }
+
+    // 2. Attempt to save lead to Firestore
     try {
       const payload = {
-        name,
-        email,
-        phone: phone || "Not provided",
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone ? phone.trim() : "Not provided",
         guideName: "Biologic Regeneration 101: Wharton's Jelly, Exosomes, and PRP",
         jointConcern,
         sessionId: getSessionId(),
         createdAt: serverTimestamp(),
       };
 
-      // 1. Save lead to Firestore
       await addDoc(collection(db, "guide_downloads"), payload);
 
-      // 2. Track analytics
       trackEvent(
         "guide_downloaded",
         "/guide/regenerative-medicine-101",
         payload.guideName,
         JSON.stringify({ email, jointConcern })
       );
+    } catch (error) {
+      console.warn("Firestore guide lead capture error (check Firebase Console rules):", error);
+    }
 
-      // 3. Trigger 3-Email Nurture Sequence
+    // 3. Trigger 3-Email Nurture Sequence (optional/non-blocking)
+    try {
       await triggerNurtureSequence({
-        email,
-        name,
+        email: email.trim(),
+        name: name.trim(),
         source: "guide",
         jointConcern,
         templateId: "welcome_expectations",
@@ -75,33 +91,15 @@ export default function GuideDownload() {
         "welcome_expectations",
         JSON.stringify({ email, source: "guide" })
       );
-
-      // 4. Trigger browser PDF download
-      const link = document.createElement("a");
-      link.href = guidePdfPath;
-      link.download = "Biologic-Regeneration-101-Summit-Orthopedics.pdf";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      setIsDownloaded(true);
-      toast.success("Guide Downloaded!", {
-        description: "Your PDF has downloaded and a welcome email has been dispatched.",
-      });
-    } catch (error) {
-      console.error("Error processing guide download:", error);
-      handleFirestoreError(error, OperationType.WRITE, "guide_downloads");
-      // Still allow download even if Firestore encounters network issue
-      const link = document.createElement("a");
-      link.href = guidePdfPath;
-      link.download = "Biologic-Regeneration-101-Summit-Orthopedics.pdf";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      setIsDownloaded(true);
-    } finally {
-      setIsSubmitting(false);
+    } catch (emailErr) {
+      console.warn("Email nurture dispatch warning:", emailErr);
     }
+
+    toast.success("Guide Downloaded!", {
+      description: "Your PDF is downloading. Please check your browser's downloads folder.",
+    });
+
+    setIsSubmitting(false);
   };
 
   return (
