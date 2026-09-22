@@ -1,1561 +1,1580 @@
-import { useState, useEffect, useRef } from "react";
-import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from "firebase/auth";
-import { auth } from "../lib/firebase";
-import { Link } from "react-router-dom";
+import * as React from "react";
+import { useState, useEffect } from "react";
+import { motion } from "motion/react";
 import { 
-  Phone, 
-  PhoneIncoming, 
-  PhoneOff, 
-  Circle, 
-  Play, 
-  Pause, 
-  Loader2, 
-  Send, 
-  Volume2, 
-  Bot, 
-  Sparkles, 
-  History, 
-  User, 
-  Clock, 
-  ArrowRight, 
-  ShieldAlert, 
-  X, 
-  Activity,
-  PlusCircle,
-  HelpCircle,
-  Video,
-  Mic,
-  MicOff,
-  Settings,
-  Copy,
-  Check,
-  AlertTriangle,
+  collection, 
+  query, 
+  orderBy, 
+  onSnapshot, 
+  Timestamp,
+  deleteDoc,
+  doc,
+  updateDoc,
+  serverTimestamp
+} from "firebase/firestore";
+import { db, auth, handleFirestoreError, OperationType } from "@/lib/firebase";
+import { 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  signOut, 
+  onAuthStateChanged, 
+  User 
+} from "firebase/auth";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogDescription, 
+  DialogHeader, 
+  DialogTitle, 
+} from "@/components/ui/dialog";
+import { 
+  LogOut, 
+  LogIn, 
+  ShieldCheck, 
+  Users, 
+  MessageSquare, 
+  Calendar, 
+  Trash2, 
+  Search as SearchIcon,
   ExternalLink,
-  Server,
-  Wifi,
-  WifiOff,
+  Send,
+  Printer,
+  Download,
+  FileText,
+  BarChart3,
+  Activity,
+  TrendingUp,
+  Clock,
+  Sparkles,
   RefreshCw,
-  Home,
-  LayoutDashboard,
-  LogOut
+  Phone,
+  Home
 } from "lucide-react";
+import { toast } from "sonner";
+import { 
+  BarChart, 
+  Bar, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer,
+  AreaChart,
+  Area
+} from "recharts";
+import { format, subDays, isSameDay } from "date-fns";
 
-interface CallTranscriptItem {
-  speaker: "caller" | "admin" | "system";
-  text: string;
-  timestamp: number;
+interface Booking {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  date: string;
+  type: string;
+  status: "pending" | "confirmed" | "cancelled";
+  reportName?: string;
+  reportUrl?: string;
+  createdAt: any;
 }
 
-interface CallRecord {
+interface ContactMessage {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  message: string;
+  source?: string;
+  direction?: string;
+  smsSid?: string;
+  createdAt: any;
+}
+
+interface QuizLead {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  joint: string;
+  recommendations?: any;
+  createdAt: any;
+}
+
+interface GuideLead {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  jointConcern: string;
+  createdAt: any;
+}
+
+interface CallLogItem {
   id: string;
   callSid: string;
   callerPhone: string;
   callerName: string;
-  status: "ringing" | "active" | "completed" | "voicemail";
+  status: string;
   voicemailUrl?: string;
   voicemailDuration?: number;
-  transcript: CallTranscriptItem[];
-  queue: string[];
+  transcript?: any[];
   aiSummary?: string;
-  aiUrgency?: "Low" | "Medium" | "High" | "Critical";
-  aiIntent?: string;
-  createdAt: string;
-  updatedAt: string;
-  isSimulated?: boolean;
+  createdAt: any;
 }
 
-export default function AdminPhoneConsole() {
-  const [user, setUser] = useState<any>(null);
+interface AnalyticsEvent {
+  id: string;
+  type: string;
+  page: string;
+  sessionId: string;
+  createdAt: any;
+}
+
+interface ActiveSession {
+  id: string;
+  sessionId: string;
+  lastActive: any;
+  page: string;
+}
+
+export const formatSafeDate = (val: any): string => {
+  if (!val) return "Recent";
+  try {
+    if (val && typeof val.toDate === "function") {
+      return val.toDate().toLocaleString();
+    }
+    if (val && val.seconds) {
+      return new Date(val.seconds * 1000).toLocaleString();
+    }
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleString();
+    }
+  } catch (e) {}
+  return "Recent";
+};
+
+export default function AdminDashboard() {
+  const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [authLoading, setAuthLoading] = useState(true);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [messages, setMessages] = useState<ContactMessage[]>([]);
+  const [quizLeads, setQuizLeads] = useState<QuizLead[]>([]);
+  const [guideLeads, setGuideLeads] = useState<GuideLead[]>([]);
+  const [callLogs, setCallLogs] = useState<CallLogItem[]>([]);
+  const [events, setEvents] = useState<AnalyticsEvent[]>([]);
+  const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [bookingSearch, setBookingSearch] = useState("");
+  const [messageSearch, setMessageSearch] = useState("");
+  const [activeTab, setActiveTab] = useState("messages");
+  const [selectedMessage, setSelectedMessage] = useState<ContactMessage | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ type: string, id: string } | null>(null);
+  
+  // Hologram State
+  const [currentHologram, setCurrentHologram] = useState<{ url: string, lastUpdated: any, lastAttempt: any } | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
-  // Twilio Browser WebRTC Phone Device States
-  const [answeringMode, setAnsweringMode] = useState<"voice" | "text">("voice");
-  const [twilioToken, setTwilioToken] = useState<string | null>(null);
-  const [twilioWarning, setTwilioWarning] = useState<string | null>(null);
-  const [device, setDevice] = useState<any>(null);
-  const [deviceState, setDeviceState] = useState<"unregistered" | "ready" | "ringing" | "connected" | "error">("unregistered");
-  const [deviceErrorMsg, setDeviceErrorMsg] = useState<string | null>(null);
-  const [activeConnection, setActiveConnection] = useState<any>(null);
+  const handlePrint = (data: Booking | ContactMessage, type: 'booking' | 'message') => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
 
-  // Diagnostics & Webhook configuration modal
-  const [diagnosticsModalOpen, setDiagnosticsModalOpen] = useState(false);
-  const [diagnosticsData, setDiagnosticsData] = useState<any>(null);
-  const [diagnosticsLoading, setDiagnosticsLoading] = useState(false);
-  const [copiedField, setCopiedField] = useState<string | null>(null);
+    const title = type === 'booking' ? 'Appointment Request' : 'Contact Message';
+    const content = type === 'booking' 
+      ? `
+        <div style="font-family: sans-serif; padding: 40px; color: #0f172a;">
+          <h1 style="color: #0d9488; border-bottom: 2px solid #0d9488; padding-bottom: 10px;">${title}</h1>
+          <div style="margin-top: 30px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div>
+              <p><strong>Patient Name:</strong> ${(data as Booking).name}</p>
+              <p><strong>Email:</strong> ${(data as Booking).email}</p>
+              <p><strong>Phone:</strong> ${(data as Booking).phone}</p>
+            </div>
+            <div>
+              <p><strong>Preferred Date:</strong> ${(data as Booking).date}</p>
+              <p><strong>Treatment Type:</strong> ${(data as Booking).type}</p>
+              <p><strong>Status:</strong> ${(data as Booking).status}</p>
+            </div>
+          </div>
+          <div style="margin-top: 30px; padding: 20px; background: #f8fafc; border-radius: 10px;">
+            <p><strong>Submitted On:</strong> ${formatSafeDate((data as Booking).createdAt)}</p>
+            <p><strong>File Attached:</strong> ${(data as Booking).reportName || 'None'}</p>
+          </div>
+          <div style="margin-top: 50px; text-align: center; color: #94a3b8; font-size: 12px;">
+            Summit Regenerative Orthopedics - Clinical Record
+          </div>
+        </div>
+      `
+      : `
+        <div style="font-family: sans-serif; padding: 40px; color: #0f172a;">
+          <h1 style="color: #0d9488; border-bottom: 2px solid #0d9488; padding-bottom: 10px;">${title}</h1>
+          <div style="margin-top: 30px;">
+            <p><strong>Sender:</strong> ${(data as ContactMessage).name}</p>
+            <p><strong>Email:</strong> ${(data as ContactMessage).email}</p>
+            <p><strong>Phone:</strong> ${(data as ContactMessage).phone || 'N/A'}</p>
+            <p><strong>Channel:</strong> ${(data as ContactMessage).source || 'Web Form'}</p>
+            <p><strong>Sent On:</strong> ${formatSafeDate((data as ContactMessage).createdAt)}</p>
+          </div>
+          <div style="margin-top: 30px; padding: 20px; background: #f8fafc; border-radius: 10px; min-height: 200px;">
+            <p><strong>Message:</strong></p>
+            <p style="white-space: pre-wrap; line-height: 1.6;">${(data as ContactMessage).message}</p>
+          </div>
+          <div style="margin-top: 50px; text-align: center; color: #94a3b8; font-size: 12px;">
+            Summit Regenerative Orthopedics - Contact Record
+          </div>
+        </div>
+      `;
 
-  // Live Speech Mic-Simulation variables
-  const [micActive, setMicActive] = useState(false);
-  const [voiceSimSpeaking, setVoiceSimSpeaking] = useState(false); 
-  const [recognitionRunning, setRecognitionRunning] = useState(false);
-  const speechRecognizerRef = useRef<any>(null);
+    printWindow.document.write(`
+      <html>
+        <head><title>Print ${title}</title></head>
+        <body>${content}</body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.print();
+  };
 
-  // Calls logs
-  const [activeCall, setActiveCall] = useState<CallRecord | null>(null);
-  const [pastCalls, setPastCalls] = useState<CallRecord[]>([]);
-  const [callsLoading, setCallsLoading] = useState(false);
-
-  // Message compose
-  const [typedMessage, setTypedMessage] = useState("");
-  const [isSendingMsg, setIsSendingMsg] = useState(false);
-
-  // Presence monitor
-  const [presenceOnline, setPresenceOnline] = useState(false);
-  const [activeAdminCount, setActiveAdminCount] = useState(1);
-
-  // Simulation setup
-  const [simName, setSimName] = useState("Arthur Pendleton");
-  const [simPhone, setSimPhone] = useState("+1 (415) 388-9102");
-  const [isSimulatingStart, setIsSimulatingStart] = useState(false);
-
-  // Audio players state for voicemails
-  const [playingVoicemailId, setPlayingVoicemailId] = useState<string | null>(null);
-  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
-  const chatBottomRef = useRef<HTMLDivElement | null>(null);
-
-  // Presets
-  const presets = [
-    "Yes, we specialize in non-surgical PRP treatments! We can schedule your knee diagnostics this week.",
-    "Dr. Morreale is looking at your description live. What was the exact mechanism of injury?",
-    "That is a great candidate for our exosome signaling protocol. Let's arrange a 1-to-1 review.",
-    "We have customized clinical program rates available. Shall we arrange a direct phone callback?",
-    "Feel free to check our Knee Pain growth funnel under /avoid-knee-surgery directly."
-  ];
-
-  // 1a. Load answering preference
   useEffect(() => {
-    const fetchPref = async () => {
-      try {
-        const res = await fetch("/api/twilio/preference");
-        if (res.ok) {
-          const data = await res.json();
-          if (data.mode) {
-            setAnsweringMode(data.mode);
-          }
+    console.log("AdminDashboard auth state tracker mounted. Registering onAuthStateChanged...");
+    
+    // Safety timer to prevent permanent "Loading dashboard..." hang
+    const timer = setTimeout(() => {
+      setLoading((currLoading) => {
+        if (currLoading) {
+          console.warn("Firebase onAuthStateChanged did not trigger within 4 seconds. Forcing loading to false as safety fallback.");
+          return false;
         }
-      } catch (e) {
-        console.error("Failed to load clinical answering preference:", e);
-      }
-    };
-    if (user && isAdmin) {
-      fetchPref();
-    }
-  }, [user, isAdmin]);
-
-  const toggleAnsweringMode = async () => {
-    const targetMode = answeringMode === "voice" ? "text" : "voice";
-    setAnsweringMode(targetMode);
-    try {
-      await fetch("/api/twilio/preference", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: targetMode })
+        return currLoading;
       });
-    } catch (e) {
-      console.error("Failed to set clinical answering preference:", e);
-    }
-  };
+    }, 4000);
 
-  // 1b. Real Twilio Browser Device Setup
-  const loadDiagnostics = async () => {
-    setDiagnosticsLoading(true);
-    try {
-      const res = await fetch("/api/twilio/diagnostics");
-      if (res.ok) {
-        const data = await res.json();
-        setDiagnosticsData(data);
-      } else {
-        const text = await res.text();
-        setDiagnosticsData({ error: `Server returned HTTP ${res.status}: ${text.substring(0, 100)}` });
-      }
-    } catch (e: any) {
-      setDiagnosticsData({ error: `Diagnostics fetch failed: ${e.message}. If running on static Netlify hosting, backend API routes (/api/*) require a running server or proxy.` });
-    } finally {
-      setDiagnosticsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (user && isAdmin) {
-      loadDiagnostics();
-    }
-  }, [user, isAdmin]);
-
-  useEffect(() => {
-    if (!user || !isAdmin) return;
-
-    let dev: any = null;
-
-    const loadTwilioScript = () => {
-      return new Promise<void>((resolve, reject) => {
-        if ((window as any).Twilio) {
-          resolve();
-          return;
-        }
-        const script = document.createElement("script");
-        script.src = "https://sdk.twilio.com/js/voice/v2/twilio.min.js";
-        script.async = true;
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error("Failed to load Twilio Voice SDK from CDN"));
-        document.body.appendChild(script);
-      });
-    };
-
-    const initTwilioDevice = async () => {
-      try {
-        await loadTwilioScript();
-        const Twilio = (window as any).Twilio;
-        if (!Twilio?.Device) {
-          throw new Error("Twilio Voice SDK global Device class not found");
-        }
-        const Device = Twilio.Device;
-        const res = await fetch("/api/twilio/token");
-        if (!res.ok) {
-          const bodyText = await res.text();
-          setDeviceErrorMsg(`Failed to fetch Twilio token (HTTP ${res.status}): ${bodyText.substring(0, 60)}`);
-          setDeviceState("error");
-          return;
-        }
-
-        const data = await res.json();
-        if (data.warning) {
-          setTwilioWarning(data.warning);
-        }
-
-        if (data.token) {
-          console.log("Setting up real Twilio WebRTC client device...");
-          setTwilioToken(data.token);
-          setTwilioWarning(null);
-
-          // Instantiate Twilio Device with codec preferences
-          dev = new Device(data.token, {
-            codecPreferences: ["opus", "pcmu"],
-            enableRingingState: true
-          });
-
-          dev.on("registered", () => {
-            console.log("Twilio WebRTC Client registered successfully.");
-            setDeviceState("ready");
-            setDeviceErrorMsg(null);
-          });
-
-          dev.on("error", (error: any) => {
-            console.error("Twilio Device WebRTC failure:", error);
-            setDeviceState("error");
-            setDeviceErrorMsg(error?.message || "WebRTC handset error");
-          });
-
-          dev.on("incoming", (conn: any) => {
-            console.log("WebRTC Incoming call connecting from Twilio...");
-            setDeviceState("ringing");
-            setActiveConnection(conn);
-
-            // Auto select active call state using the call details if present
-            const callSid = conn?.parameters?.CallSid || "CALL_" + Date.now();
-            const fromNum = conn?.parameters?.From || "Anonymous";
-
-            setActiveCall({
-              id: callSid,
-              callSid: callSid,
-              callerPhone: fromNum,
-              callerName: "Incoming Patient Caller",
-              status: "ringing",
-              transcript: [
-                { speaker: "system", text: "Incoming WebRTC audio connection detected... click Accept to connect line.", timestamp: Date.now() }
-              ],
-              queue: [],
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString()
-            });
-
-            conn.on("accept", () => {
-              setDeviceState("connected");
-              setActiveCall((prev: any) => prev ? { ...prev, status: "active" } : null);
-            });
-
-            conn.on("disconnect", () => {
-              setDeviceState("ready");
-              setActiveConnection(null);
-              setActiveCall((prev: any) => prev ? { ...prev, status: "completed" } : null);
-              loadCallsHistory();
-            });
-
-            conn.on("error", (callErr: any) => {
-              console.error("Twilio Call error:", callErr);
-              setDeviceState("ready");
-            });
-          });
-
-          await dev.register();
-          setDevice(dev);
-        } else if (data.warning) {
-          setDeviceState("unregistered");
-        }
-      } catch (err: any) {
-        console.error("Could not register Twilio browser handset capabilities:", err);
-        setDeviceErrorMsg(err?.message || "Could not register WebRTC client");
-        setDeviceState("error");
-      }
-    };
-
-    initTwilioDevice();
-
-    return () => {
-      if (dev) {
-        try {
-          dev.destroy();
-        } catch (e) {}
-      }
-    };
-  }, [user, isAdmin]);
-
-  // 1c. Speech Recognition Setup for WebRTC Simulated Calls
-  const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-
-  const startSpeechRecognition = () => {
-    if (!SpeechRecognition) {
-      console.warn("Web Speech API is not supported in this browser.");
-      return;
-    }
-    
-    if (speechRecognizerRef.current) {
-      try {
-        speechRecognizerRef.current.stop();
-      } catch (e) {}
-    }
-
-    const rec = new SpeechRecognition();
-    rec.continuous = false; 
-    rec.interimResults = false;
-    rec.lang = "en-US";
-
-    rec.onstart = () => {
-      setRecognitionRunning(true);
-      setMicActive(true);
-    };
-
-    rec.onresult = async (event: any) => {
-      const text = event.results[0][0].transcript;
-      if (text && text.trim() && activeCall) {
-        console.log("Transcribed speech locally:", text);
-        
-        // Append speech segment locally instantly
-        setActiveCall((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            transcript: [
-              ...prev.transcript,
-              { speaker: "admin", text, timestamp: Date.now() }
-            ]
-          };
-        });
-
-        // Send speech segment to the server
-        try {
-          await fetch("/api/calls/action", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              callSid: activeCall.callSid,
-              action: "speak",
-              text
-            })
-          });
-        } catch (e) {
-          console.error("Failed to sync transcript speech with model:", e);
-        }
-      }
-    };
-
-    rec.onerror = (e: any) => {
-      console.error("Speech recognition error:", e);
-    };
-
-    rec.onend = () => {
-      setRecognitionRunning(false);
-    };
-
-    speechRecognizerRef.current = rec;
-    rec.start();
-  };
-
-  const stopSpeechRecognition = () => {
-    if (speechRecognizerRef.current) {
-      try {
-        speechRecognizerRef.current.stop();
-      } catch (e) {}
-    }
-    setMicActive(false);
-  };
-
-  // 1d. Speech synthesis trigger for Simulated Voice Patients
-  useEffect(() => {
-    if (!activeCall || !activeCall.isSimulated || answeringMode !== "voice" || activeCall.status !== "active") return;
-    
-    const transcript = activeCall.transcript;
-    if (transcript.length === 0) return;
-    
-    const lastLine = transcript[transcript.length - 1];
-    if (lastLine.speaker === "caller") {
-      setVoiceSimSpeaking(true);
-      stopSpeechRecognition();
-      
-      const utterance = new SpeechSynthesisUtterance(lastLine.text);
-      const voices = window.speechSynthesis.getVoices();
-      const usVoice = voices.find(v => v.lang.startsWith("en-US") && v.name.includes("Natural")) || 
-                     voices.find(v => v.lang.startsWith("en")) || null;
-      if (usVoice) utterance.voice = usVoice;
-      
-      utterance.onend = () => {
-        setVoiceSimSpeaking(false);
-        // Automatically open Admin input mic when patient finishes talking!
-        startSpeechRecognition();
-      };
-
-      utterance.onerror = () => {
-        setVoiceSimSpeaking(false);
-        startSpeechRecognition();
-      };
-
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(utterance);
-    }
-  }, [activeCall?.transcript?.length]);
-
-  // Handle answering voice softphone
-  const answerVoiceSoftphone = () => {
-    if (!activeCall) return;
-    if (activeCall.isSimulated) {
-      setActiveCall((prev) => prev ? { 
-        ...prev, 
-        status: "active",
-        transcript: [
-          ...prev.transcript,
-          { speaker: "system", text: "Dr. Morreale accepted call directly on computer browser.", timestamp: Date.now() }
-        ]
-      } : null);
-      if (answeringMode === "voice") {
-        setTimeout(() => {
-          startSpeechRecognition();
-        }, 500);
-      }
-    } else if (activeConnection) {
-      activeConnection.accept();
-    }
-  };
-
-  // Handle hangup/declining voice softphone
-  const hangUpVoiceSoftphone = async () => {
-    if (!activeCall) return;
-    
-    // Stop simulations and synthesis
-    stopSpeechRecognition();
-    window.speechSynthesis.cancel();
-    setVoiceSimSpeaking(false);
-
-    if (activeCall.isSimulated) {
-      setActiveCall((prev) => prev ? { ...prev, status: "completed" } : null);
-      await triggerSimulationHangup();
-      loadCallsHistory();
-    } else if (activeConnection) {
-      activeConnection.disconnect();
-    } else {
-      // Manual local clear
-      setActiveCall(null);
-    }
-  };
-
-  // 1. Authenticate check
-  useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
+      console.log("onAuthStateChanged callback triggered. User details:", u ? { email: u.email, uid: u.uid } : "No active session");
       setUser(u);
       if (u) {
         const adminCheck = u.email === "team@watch1do1.com" || u.email === "josephmorrealemd@gmail.com";
+        console.log(`Checking admin privileges for ${u.email}: ${adminCheck ? "ADMIN" : "NOT ADMIN"}`);
         setIsAdmin(adminCheck);
       } else {
         setIsAdmin(false);
       }
-      setAuthLoading(false);
+      setLoading(false);
+      clearTimeout(timer);
     });
+
     return () => {
       unsubscribe();
-      window.speechSynthesis.cancel();
+      clearTimeout(timer);
     };
   }, []);
 
-  // 2. Heartbeat presence loops (Send ping every 15 seconds to server if authenticated & tab open)
-  useEffect(() => {
-    if (!user || !isAdmin) return;
-
-    const reportHeartbeat = async () => {
-      try {
-        const response = await fetch("/api/twilio/heartbeat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ adminId: user.uid })
-        });
-        const data = await response.json();
-        if (data.success) {
-          setPresenceOnline(true);
-          setActiveAdminCount(data.activeAdmins || 1);
-        }
-      } catch (err) {
-        console.error("Presence heartbeat check failed:", err);
-        setPresenceOnline(false);
-      }
-    };
-
-    // Trigger instantly then cycle
-    reportHeartbeat();
-    const heartbeatTimer = setInterval(reportHeartbeat, 15000);
-
-    return () => clearInterval(heartbeatTimer);
-  }, [user, isAdmin]);
-
-  // 3. Connect real-time Server-Sent Events (SSE) Stream
-  useEffect(() => {
-    if (!user || !isAdmin) return;
-
-    console.log("Connecting Call Interceptor to Server-Sent Events (SSE)...");
-    const es = new EventSource("/api/twilio/events");
-
-    es.addEventListener("comment", (e) => {
-      // Keep alive comments
-    });
-
-    es.addEventListener("call_started", (e) => {
-      const data = JSON.parse(e.data);
-      console.log("SSE [call_started]:", data);
-      setActiveCall(data);
-    });
-
-    es.addEventListener("call_updated", (e) => {
-      const data = JSON.parse(e.data);
-      console.log("SSE [call_updated]:", data);
-      setActiveCall(data);
-    });
-
-    es.addEventListener("call_ended", (e) => {
-      const data = JSON.parse(e.data);
-      console.log("SSE [call_ended]:", data);
-      // Move active to completed log, close active
-      setActiveCall((prev) => {
-        if (prev?.callSid === data.callSid) {
-          return { ...prev, status: "completed", ...data };
-        }
-        return prev;
-      });
-      // Trigger a re-refresh of call logs history
-      loadCallsHistory();
-    });
-
-    es.onerror = (err) => {
-      console.error("SSE connection experienced an error. Reconnecting...", err);
-    };
-
-    return () => {
-      es.close();
-    };
-  }, [user, isAdmin]);
-
-  // 4. Fetch Calls logs history
-  const loadCallsHistory = async () => {
-    if (!user || !isAdmin) return;
-    setCallsLoading(true);
+  const fetchAllData = async () => {
+    // 1. Fetch from server-side unified inbox endpoint if available
     try {
-      const res = await fetch("/api/calls");
-      if (res.ok) {
+      const res = await fetch("/api/admin/inbox");
+      const contentType = res.headers.get("content-type") || "";
+      if (res.ok && contentType.includes("application/json")) {
         const data = await res.json();
-        setPastCalls(data);
-
-        // If there's an active call found running in past logs, restore screen state
-        const activeItem = data.find((c: CallRecord) => c.status === "active" || c.status === "ringing");
-        if (activeItem) {
-          setActiveCall(activeItem);
-        }
+        if (Array.isArray(data.messages)) setMessages(data.messages);
+        if (Array.isArray(data.bookings)) setBookings(data.bookings);
+        if (Array.isArray(data.quizResults)) setQuizLeads(data.quizResults);
+        if (Array.isArray(data.guideDownloads)) setGuideLeads(data.guideDownloads);
+        if (Array.isArray(data.calls)) setCallLogs(data.calls);
       }
+    } catch {
+      // Backend not running on static host (e.g. Netlify) - fallback to Firestore directly
+    }
+
+    // 2. Client-side Firestore collection fetching with independent safety blocks
+    try {
+      const { getDocs, collection, doc, getDoc } = await import("firebase/firestore");
+      
+      try {
+        const mSnapshot = await getDocs(collection(db, "contact_messages"));
+        const mList = mSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as ContactMessage));
+        mList.sort((a: any, b: any) => {
+          const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : new Date(a.createdAt || 0).getTime();
+          const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt || 0).getTime();
+          return timeB - timeA;
+        });
+        setMessages(mList);
+      } catch (e) {
+        console.error("Messages fetch error:", e);
+      }
+
+      try {
+        const bSnapshot = await getDocs(collection(db, "bookings"));
+        const bList = bSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as Booking));
+        bList.sort((a: any, b: any) => {
+          const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : new Date(a.createdAt || 0).getTime();
+          const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt || 0).getTime();
+          return timeB - timeA;
+        });
+        setBookings(bList);
+      } catch (e) {
+        console.error("Bookings fetch error:", e);
+      }
+
+      try {
+        const qSnapshot = await getDocs(collection(db, "pain_quiz_results"));
+        const qList = qSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as QuizLead));
+        qList.sort((a: any, b: any) => {
+          const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : new Date(a.createdAt || 0).getTime();
+          const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt || 0).getTime();
+          return timeB - timeA;
+        });
+        setQuizLeads(qList);
+      } catch (e) {}
+
+      try {
+        const gSnapshot = await getDocs(collection(db, "guide_downloads"));
+        const gList = gSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as GuideLead));
+        gList.sort((a: any, b: any) => {
+          const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : new Date(a.createdAt || 0).getTime();
+          const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt || 0).getTime();
+          return timeB - timeA;
+        });
+        setGuideLeads(gList);
+      } catch (e) {}
+
+      try {
+        const cSnapshot = await getDocs(collection(db, "calls"));
+        const cList = cSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as CallLogItem));
+        cList.sort((a: any, b: any) => {
+          const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : new Date(a.createdAt || 0).getTime();
+          const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt || 0).getTime();
+          return timeB - timeA;
+        });
+        setCallLogs(cList);
+      } catch (e) {}
+
+      try {
+        const eSnapshot = await getDocs(collection(db, "analytics_events"));
+        setEvents(eSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as AnalyticsEvent)));
+      } catch (e) {}
+
+      try {
+        const sSnapshot = await getDocs(collection(db, "active_sessions"));
+        setActiveSessions(sSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as ActiveSession)));
+      } catch (e) {}
+
+      try {
+        const hSnapshot = await getDoc(doc(db, "app_state", "hologram"));
+        if (hSnapshot.exists()) {
+          const data = hSnapshot.data();
+          setCurrentHologram({
+            url: data.hologramUrl,
+            lastUpdated: data.lastHologramUpdate,
+            lastAttempt: data.lastAttemptAt
+          });
+        }
+      } catch (e) {}
     } catch (error) {
-      console.error("Failed to load clinical call logs", error);
-    } finally {
-      setCallsLoading(false);
+      console.error("Admin data fetch error:", error);
     }
   };
 
   useEffect(() => {
-    if (user && isAdmin) {
-      loadCallsHistory();
+    if (!isAdmin) return;
+
+    fetchAllData();
+    // Auto-refresh every 20 seconds
+    const interval = setInterval(fetchAllData, 20000);
+    return () => clearInterval(interval);
+  }, [isAdmin]);
+
+  const handleSyncCommunications = async () => {
+    setIsSyncing(true);
+    let twilioSynced = false;
+    try {
+      // 1. Attempt Twilio sync if a backend server is active
+      try {
+        const res = await fetch("/api/twilio/sync", { method: "POST" });
+        const contentType = res.headers.get("content-type") || "";
+        if (res.ok && contentType.includes("application/json")) {
+          const data = await res.json();
+          if (data.success) {
+            twilioSynced = true;
+          }
+        }
+      } catch {
+        // Backend not available on static hosting (Netlify) - continue with direct database sync
+      }
+
+      // 2. Fetch directly from Firestore database
+      await fetchAllData();
+
+      if (twilioSynced) {
+        toast.success("Synchronized Communications", {
+          description: "Synced latest SMS & voicemails from Twilio, plus website inquiries."
+        });
+      } else {
+        toast.success("Database Refreshed", {
+          description: "Loaded latest website messages, consultation bookings, and quiz leads."
+        });
+      }
+    } catch (err: any) {
+      console.error("Sync error:", err);
+      toast.error("Failed to refresh", {
+        description: err.message
+      });
+    } finally {
+      setIsSyncing(false);
     }
-  }, [user, isAdmin]);
+  };
 
-  // Scroll chat window down automatically
-  useEffect(() => {
-    chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [activeCall?.transcript]);
-
-  // Handle Google Login popup
   const handleLogin = async () => {
     try {
       const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
-    } catch (e: any) {
-      console.error("Login popup failed:", e);
-    }
-  };
-
-  // Log response helper (TTS speak button)
-  const handleSendTTSMessage = async (phraseToSpeak?: string) => {
-    if (!activeCall) return;
-    const msg = phraseToSpeak || typedMessage;
-    if (!msg.trim()) return;
-
-    setIsSendingMsg(true);
-    try {
-      const response = await fetch("/api/calls/action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          callSid: activeCall.callSid,
-          action: "speak",
-          text: msg
-        })
-      });
-
-      if (response.ok) {
-        if (!phraseToSpeak) setTypedMessage("");
-        // Local immediate append so UI reacts immediately without waiting for Twilio post cycle
-        setActiveCall((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            transcript: [
-              ...prev.transcript,
-              { speaker: "admin", text: msg, timestamp: Date.now() }
-            ]
-          };
-        });
-      }
-    } catch (err) {
-      console.error("Type-to-Speech injection failed:", err);
-    } finally {
-      setIsSendingMsg(false);
-    }
-  };
-
-  // Simulate incoming patient call
-  const triggerSimulation = async () => {
-    setIsSimulatingStart(true);
-    try {
-      const response = await fetch("/api/calls/action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "simulate_start",
-          callerPhone: simPhone,
-          callerName: simName
-        })
-      });
-
-      if (response.ok) {
-        const body = await response.json();
-        console.log("Simulating initiated", body);
-      }
+      toast.success("Logged in successfully");
     } catch (error) {
-      console.error("Cannot start clinical call simulator:", error);
-    } finally {
-      setIsSimulatingStart(false);
+      console.error("Login error:", error);
+      toast.error("Failed to login");
     }
   };
 
-  // Simulate patient hanging up
-  const triggerSimulationHangup = async () => {
-    if (!activeCall) return;
+  const handleLogout = async () => {
     try {
-      await fetch("/api/calls/action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "simulate_hangup",
-          callSid: activeCall.callSid
-        })
-      });
-    } catch (error) {
-      console.error("Cannot disconnect call simulation:", error);
+      await signOut(auth);
+      toast.success("Signed out successfully");
+      window.location.href = "/";
+    } catch (e) {
+      window.location.href = "/";
     }
   };
 
-  // Toggle voicemail playback audio
-  const handlePlayVoicemail = (record: CallRecord) => {
-    if (!record.voicemailUrl) return;
+  const handleDelete = async () => {
+    if (!deleteConfirm) return;
 
-    if (playingVoicemailId === record.callSid) {
-      // Pause
-      audioPlayerRef.current?.pause();
-      setPlayingVoicemailId(null);
-    } else {
-      // Play
-      setPlayingVoicemailId(record.callSid);
-      if (audioPlayerRef.current) {
-        audioPlayerRef.current.src = record.voicemailUrl;
-        audioPlayerRef.current.play();
-        audioPlayerRef.current.onended = () => {
-          setPlayingVoicemailId(null);
-        };
+    const { type, id } = deleteConfirm;
+    try {
+      await deleteDoc(doc(db, type, id));
+      if (type === "bookings") {
+        setBookings(prev => prev.filter(b => b.id !== id));
+      } else if (type === "contact_messages") {
+        setMessages(prev => prev.filter(m => m.id !== id));
+      } else if (type === "pain_quiz_results") {
+        setQuizLeads(prev => prev.filter(q => q.id !== id));
+      } else if (type === "guide_downloads") {
+        setGuideLeads(prev => prev.filter(g => g.id !== id));
+      } else if (type === "calls") {
+        setCallLogs(prev => prev.filter(c => c.id !== id));
       }
+      toast.success("Record deleted successfully");
+      setDeleteConfirm(null);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, type);
+      toast.error("Failed to delete record");
     }
   };
 
-  if (authLoading) {
+  const handleStatusChange = async (bookingId: string, newStatus: string) => {
+    try {
+      await updateDoc(doc(db, "bookings", bookingId), { status: newStatus });
+      toast.success(`Status updated to ${newStatus}`);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, "bookings");
+      toast.error("Failed to update status");
+    }
+  };
+
+  const generateHologram = async () => {
+    setIsGenerating(true);
+    try {
+      const response = await fetch("/api/generate-hologram", {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate hologram");
+      }
+
+      const { imageUrl } = await response.json();
+
+      if (imageUrl) {
+        try {
+          const { setDoc } = await import("firebase/firestore");
+          await setDoc(doc(db, "app_state", "hologram"), {
+            hologramUrl: imageUrl,
+            lastHologramUpdate: serverTimestamp()
+          }, { merge: true });
+          
+          setCurrentHologram(prev => ({
+            ...prev!,
+            url: imageUrl,
+            lastUpdated: Timestamp.now()
+          }));
+          
+          toast.success("Daily hologram updated successfully");
+        } catch (dbError) {
+          console.error("Error saving to Firestore:", dbError);
+          toast.error("Hologram generated but failed to save to database.");
+        }
+      } else {
+        toast.error("AI failed to return an image.");
+      }
+    } catch (error: any) {
+      console.error("Failed to generate hologram:", error);
+      if (error?.message?.includes("429") || error?.message?.includes("quota")) {
+        toast.error("AI Quota exceeded.");
+      } else {
+        toast.error("AI Generation failed.");
+      }
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const filteredBookings = bookings.filter(b => 
+    b.name.toLowerCase().includes(bookingSearch.toLowerCase()) ||
+    b.email.toLowerCase().includes(bookingSearch.toLowerCase()) ||
+    b.phone.includes(bookingSearch)
+  );
+
+  const filteredMessages = messages.filter(m => 
+    m.name.toLowerCase().includes(messageSearch.toLowerCase()) ||
+    m.email.toLowerCase().includes(messageSearch.toLowerCase()) ||
+    (m.phone && m.phone.includes(messageSearch))
+  );
+
+  if (loading) return <div className="p-8 text-center">Loading dashboard...</div>;
+
+  if (!user) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center">
-        <Loader2 className="h-10 w-10 text-teal-600 animate-spin mb-4" />
-        <p className="text-gray-500 font-sans">Connecting to security systems...</p>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+        <Card className="max-w-md w-full rounded-3xl shadow-xl border-slate-200">
+          <CardHeader className="text-center space-y-2">
+            <div className="w-16 h-16 bg-teal-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <ShieldCheck className="w-8 h-8 text-teal-600" />
+            </div>
+            <CardTitle className="text-2xl font-bold">Admin Access</CardTitle>
+            <p className="text-slate-500 text-sm">Please sign in to access the dashboard.</p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Button onClick={handleLogin} className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-xl h-12 font-bold">
+              <LogIn className="w-4 h-4 mr-2" />
+              Sign in with Google
+            </Button>
+            <Button variant="ghost" className="w-full text-slate-500" onClick={() => window.location.href = "/"}>
+              <ExternalLink className="w-4 h-4 mr-2" />
+              Back to Website
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
-  if (!user || !isAdmin) {
+  if (!isAdmin) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-900 to-slate-950 flex flex-col justify-center items-center px-4">
-        <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl text-center space-y-6">
-          <div className="h-16 w-16 mx-auto bg-teal-500/10 rounded-full flex items-center justify-center border border-teal-500/30">
-            <Phone className="h-8 w-8 text-teal-400" />
-          </div>
-          <div className="space-y-2">
-            <h1 className="text-2xl font-sans font-medium text-white tracking-tight">Clinical Console Auth</h1>
-            <p className="text-sm text-slate-400 font-sans">
-              Access to this live receptionist intercept system is reserved strictly for administrative clinical specialists.
-            </p>
-          </div>
-
-          {user && !isAdmin ? (
-            <div className="bg-red-500/10 border border-red-500/20 text-red-200 text-xs rounded-lg p-3 text-left flex items-start gap-2">
-              <ShieldAlert className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-semibold">Access Denied</p>
-                <p className="mt-0.5 text-red-300/80">
-                  Your authenticated email ({user.email}) does not possess clinical administration privileges.
-                </p>
-              </div>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+        <Card className="max-w-md w-full rounded-3xl shadow-xl border-slate-200">
+          <CardHeader className="text-center space-y-2">
+            <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <ShieldCheck className="w-8 h-8 text-red-600" />
             </div>
-          ) : null}
-
-          <div className="space-y-3">
-            {!user ? (
-              <button
-                id="admin-phone-login-btn"
-                onClick={handleLogin}
-                className="w-full bg-teal-500 hover:bg-teal-600 active:translate-y-px text-slate-950 text-sm font-semibold py-3 px-4 rounded-xl transition duration-250 flex items-center justify-center gap-2"
-              >
-                Sign In with Google Medical SSO
-              </button>
-            ) : (
-              <button
-                id="admin-phone-logout-btn"
-                onClick={() => signOut(auth)}
-                className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-semibold py-3 px-4 rounded-xl transition"
-              >
-                Sign Out Account
-              </button>
-            )}
-            <Link to="/" className="block text-xs text-slate-500 hover:text-slate-400 transition underline">
-              Return to Public Portal
-            </Link>
-          </div>
-        </div>
+            <CardTitle className="text-2xl font-bold">Access Denied</CardTitle>
+            <p className="text-slate-500 text-sm">You do not have administrative privileges.</p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-xs text-center text-slate-400">Logged in as: {user.email}</p>
+            <Button onClick={handleLogout} variant="outline" className="w-full rounded-xl h-12 font-bold">
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
+            <Button variant="ghost" className="w-full text-slate-500" onClick={() => window.location.href = "/"}>
+              <ExternalLink className="w-4 h-4 mr-2" />
+              Back to Website
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans">
-      {/* Hidden audio tag for playback */}
-      <audio ref={audioPlayerRef} className="hidden" />
-
-      {/* Header Panel */}
-      <header className="border-b border-slate-800 bg-slate-950/80 backdrop-blur px-6 py-4 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="h-10 w-10 bg-teal-500/10 rounded-xl flex items-center justify-center border border-teal-500/30">
-            <Activity className="h-5 w-5 text-teal-400 animate-pulse" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-medium text-white tracking-tight">Summit Intercept Phone Console</h1>
-              <span className="bg-teal-500/10 border border-teal-500/20 text-teal-400 text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full font-mono">
-                Live Webhooks
-              </span>
-            </div>
-            <p className="text-xs text-slate-400">Dr. Morreale is monitoring secure communications</p>
-          </div>
-        </div>
-
-        {/* Presence Indicator & Mode Swapper */}
-        <div className="flex items-center gap-4">
-          {/* Answering Mode Switcher */}
-          <div className="flex items-center bg-slate-900 border border-slate-800 rounded-full p-0.5 shadow-inner">
-            <button
-              onClick={toggleAnsweringMode}
-              title="Speak directly via microphone just like a standard phone"
-              className={`text-[11px] px-3.5 py-1 rounded-full font-medium transition duration-200 flex items-center gap-1.5 ${
-                answeringMode === "voice"
-                  ? "bg-teal-500 text-slate-950 font-bold shadow"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <Mic className="h-3 w-3" /> Live Voice Mode
-            </button>
-            <button
-              onClick={toggleAnsweringMode}
-              title="Quiet mode: read transcripts and type back translated text-to-speech to caller"
-              className={`text-[11px] px-3.5 py-1 rounded-full font-medium transition duration-200 flex items-center gap-1.5 ${
-                answeringMode === "text"
-                  ? "bg-teal-500 text-slate-950 font-bold shadow"
-                  : "text-slate-400 hover:text-slate-200"
-              }`}
-            >
-              <Send className="h-3 w-3" /> Intercept Type Mode
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-full px-3.5 py-1.5 text-xs font-mono">
-            <Circle className={`h-2.5 w-2.5 fill-current ${deviceState === "ready" || deviceState === "connected" ? "text-emerald-400 animate-pulse" : presenceOnline ? "text-teal-400" : "text-amber-500"}`} />
-            <span>Handset Status: <b>{deviceState === "ready" ? "TELEPHONY ACTIVE (READY)" : deviceState === "connected" ? "ACTIVE CALL" : presenceOnline ? "LIVE MONITOR" : "OFFLINE"}</b></span>
-            {presenceOnline && (
-              <span className="text-slate-500 border-l border-slate-800 pl-2">
-                Ops Online: {activeAdminCount}
-              </span>
+    <div className="min-h-screen bg-slate-50 pb-20">
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-6 h-6 text-teal-600" />
+            <span className="font-bold text-slate-900">Admin Dashboard</span>
+            {activeSessions.filter(s => {
+              const lastActive = s.lastActive?.toDate ? s.lastActive.toDate() : (s.lastActive?.seconds ? new Date(s.lastActive.seconds * 1000) : null);
+              return lastActive && (new Date().getTime() - lastActive.getTime()) < 120000;
+            }).length > 0 && (
+              <Badge className="ml-2 bg-teal-500 text-white animate-pulse border-none h-5 px-1.5 text-[10px]">
+                LIVE
+              </Badge>
             )}
           </div>
-
-          <button
-            onClick={() => {
-              loadDiagnostics();
-              setDiagnosticsModalOpen(true);
-            }}
-            className="flex items-center gap-1.5 text-xs bg-teal-500/10 hover:bg-teal-500/20 text-teal-400 border border-teal-500/30 px-3 py-1.5 rounded-full transition font-medium"
-            title="Open Twilio & Webhook Diagnostics"
-          >
-            <Settings className="w-3.5 h-3.5" />
-            <span>Twilio Diagnostics</span>
-            {(!twilioToken || deviceState === "error" || deviceState === "unregistered") && (
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping ml-0.5" />
-            )}
-          </button>
-
-          <Link
-            to="/admin"
-            className="flex items-center gap-1 text-xs text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-full transition"
-            title="Return to Admin Dashboard"
-          >
-            <LayoutDashboard className="w-3.5 h-3.5" />
-            <span>Dashboard</span>
-          </Link>
-
-          <Link
-            to="/"
-            className="flex items-center gap-1 text-xs text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-full transition"
-            title="Go to Website Home"
-          >
-            <Home className="w-3.5 h-3.5" />
-            <span>Home</span>
-          </Link>
-
-          <button
-            onClick={async () => {
-              await signOut(auth);
-              window.location.href = "/";
-            }}
-            className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 transition px-2 py-1"
-            title="Sign out and return to home"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Sign Out</span>
-          </button>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Button 
+              variant="default" 
+              size="sm" 
+              disabled={isSyncing}
+              className="rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-semibold flex items-center gap-1.5 text-xs"
+              onClick={handleSyncCommunications}
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">{isSyncing ? "Syncing..." : "Sync Messages"}</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="rounded-lg text-slate-700 hover:text-slate-900 border-slate-200 flex items-center gap-1.5 text-xs" 
+              onClick={() => window.location.href = "/"}
+            >
+              <Home className="w-3.5 h-3.5" />
+              <span>Home</span>
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="rounded-lg border-teal-200 text-teal-700 bg-teal-50 hover:bg-teal-100 hidden md:flex font-semibold text-xs" 
+              onClick={() => window.location.href = "/admin/phone"}
+            >
+              <Phone className="w-3.5 h-3.5 mr-1" />
+              Phone
+            </Button>
+            <Button 
+              onClick={handleLogout} 
+              variant="ghost" 
+              size="sm" 
+              className="rounded-lg text-red-600 hover:text-red-700 hover:bg-red-50 flex items-center gap-1.5 text-xs font-semibold"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Sign Out</span>
+            </Button>
+          </div>
         </div>
       </header>
 
-      {/* Top Telephony Health Alert Banner if not registered or warning */}
-      {(!twilioToken || deviceState === "error" || twilioWarning) && (
-        <div className="bg-amber-500/10 border-b border-amber-500/20 px-6 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs text-amber-200">
-          <div className="flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-            <span>
-              <b>Twilio WebRTC Alert:</b> {deviceErrorMsg || twilioWarning || "Browser phone handset is waiting for Twilio token configuration or webhook linkage."}
-            </span>
-          </div>
-          <button
-            onClick={() => {
-              loadDiagnostics();
-              setDiagnosticsModalOpen(true);
-            }}
-            className="underline font-semibold text-amber-300 hover:text-amber-100 flex items-center gap-1"
-          >
-            Open Webhook Setup Guide & Diagnostics <ArrowRight className="w-3 h-3" />
-          </button>
-        </div>
-      )}
-
-      {/* Main Grid Workspace */}
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-6">
-        
-        {/* LEFT COLUMN: ACTIVE INTERCEPT BOARD (7/12 cols) */}
-        <section className="lg:col-span-8 flex flex-col bg-slate-950 border border-slate-800/80 rounded-2xl overflow-hidden shadow-xl min-h-[550px]">
-          
-          {/* Active Call Header Status bar */}
-          <div className="p-4 bg-slate-900/50 border-b border-slate-800/80 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`p-2.5 rounded-xl ${
-                !activeCall ? "bg-slate-800/50 text-slate-500" :
-                activeCall.status === "ringing" ? "bg-amber-500/10 text-amber-400 animate-pulse border border-amber-500/30" :
-                activeCall.status === "active" ? "bg-teal-500/10 text-teal-400 border border-teal-500/30" :
-                "bg-slate-800 text-slate-300"
-              }`}>
-                {activeCall?.status === "ringing" ? <PhoneIncoming className="h-5 w-5 animate-bounce" /> : <Phone className="h-5 w-5" />}
+      <main className="container mx-auto px-4 py-8 space-y-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card className="rounded-2xl border-slate-200">
+            <CardContent className="p-6 flex items-center gap-4">
+              <div className="w-12 h-12 bg-teal-50 rounded-xl flex items-center justify-center">
+                <Calendar className="w-6 h-6 text-teal-600" />
               </div>
               <div>
-                <p className="text-xs font-mono text-slate-400">Current Call Intercept Mode</p>
-                <h2 className="text-sm font-semibold text-white">
-                  {activeCall ? (
-                    <span>{activeCall.callerName} <span className="text-xs text-slate-400 font-normal">({activeCall.callerPhone})</span></span>
-                  ) : "No active call connected on Twilio line"}
-                </h2>
+                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Bookings</p>
+                <p className="text-2xl font-bold text-slate-900">{bookings.length}</p>
               </div>
-            </div>
-
-            {activeCall && (
-              <div className="flex items-center gap-2">
-                <span className={`text-xs px-3 py-1 rounded-full font-medium ${
-                  activeCall.status === "ringing" ? "bg-amber-500/10 text-amber-300 border border-amber-500/30" :
-                  activeCall.status === "active" ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/30" :
-                  "bg-slate-800 text-slate-400"
-                }`}>
-                  {activeCall.status.toUpperCase()}
-                </span>
-                
-                {activeCall.isSimulated && (
-                  <button
-                    onClick={triggerSimulationHangup}
-                    className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs px-3 py-1 rounded-lg transition"
-                  >
-                    Disconnect
-                  </button>
-                )}
+            </CardContent>
+          </Card>
+          <Card className="rounded-2xl border-slate-200">
+            <CardContent className="p-6 flex items-center gap-4">
+              <div className="w-12 h-12 bg-sky-50 rounded-xl flex items-center justify-center">
+                <MessageSquare className="w-6 h-6 text-sky-600" />
               </div>
-            )}
-          </div>
-
-          {/* Transcript Timeline Display */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4 max-h-[460px] min-h-[280px] bg-slate-950/20">
-            {!activeCall ? (
-              <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-3">
-                <div className="h-12 w-12 rounded-full border-2 border-dashed border-slate-800 flex items-center justify-center text-slate-600">
-                  <Phone className="h-6 w-6" />
-                </div>
-                <div className="max-w-sm">
-                  <p className="text-sm text-slate-300 font-medium">Listening for incoming clinical webhooks...</p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    When a patient dials your Twilio receptionist line, the call will trigger instantly here, transitioning the caller into real-time intercept mode.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                
-                {/* 1. Ringing Mode Telephony WebRTC Call Incoming Panel */}
-                {activeCall.status === "ringing" && (
-                  <div className="bg-slate-900 border border-amber-500/30 rounded-2xl p-6 text-center max-w-sm mx-auto my-6 space-y-4 shadow-2xl backdrop-blur-md animate-pulse">
-                    <div className="h-12 w-12 bg-amber-500/10 border border-amber-500/30 rounded-full flex items-center justify-center mx-auto text-amber-400">
-                      <PhoneIncoming className="h-6 w-6 animate-bounce" />
-                    </div>
-                    
-                    <div className="space-y-1">
-                      <p className="text-[9px] tracking-widest font-mono text-amber-400 uppercase">Incoming Clinical Connection</p>
-                      <h3 className="text-base font-semibold text-white">{activeCall.callerName}</h3>
-                      <p className="text-xs text-slate-400 font-mono">{activeCall.callerPhone}</p>
-                    </div>
-
-                    <div className="flex flex-col gap-2 justify-center pt-2">
-                      <button
-                        onClick={answerVoiceSoftphone}
-                        className="w-full bg-emerald-500 hover:bg-emerald-400 active:translate-y-0.5 text-slate-950 font-semibold text-xs py-2.5 px-5 rounded-xl flex items-center justify-center gap-2 transition duration-150 shadow-lg shadow-emerald-500/10"
-                      >
-                        <Mic className="h-4 w-4" /> Answer Voice Call
-                      </button>
-                      <button
-                        onClick={hangUpVoiceSoftphone}
-                        className="w-full bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-[11px] py-1.5 px-4 rounded-xl transition duration-150"
-                      >
-                        Decline/Ignore Call
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* 2. Active Voice Mode Softphone Streams & Visualizer */}
-                {activeCall.status === "active" && answeringMode === "voice" && (
-                  <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 mb-4 max-w-sm mx-auto space-y-3 shadow-lg text-center relative overflow-hidden">
-                    <div className="absolute top-2 right-2 flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded-full text-[9px] font-mono text-emerald-400">
-                      <span className="h-1 text-xs text-emerald-400 animate-ping">•</span>
-                      CONNECTING
-                    </div>
-
-                    <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">Active Softphone Line</p>
-
-                    {/* Animated Wavelength Visualizer bars */}
-                    <div className="flex items-center justify-center gap-1 h-8">
-                      {[...Array(12)].map((_, idx) => (
-                        <span
-                          key={idx}
-                          className={`w-1 rounded-full transition-all duration-200 ${
-                            voiceSimSpeaking ? "bg-teal-400 animate-bounce h-7" : micActive ? "bg-emerald-400 animate-pulse h-5" : "bg-slate-700 h-1"
-                          }`}
-                        />
-                      ))}
-                    </div>
-
-                    <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-2.5 text-xs min-h-[44px] flex items-center justify-center font-medium">
-                      {voiceSimSpeaking ? (
-                        <span className="text-teal-300 animate-pulse flex items-center gap-1 text-center justify-center">
-                          <Volume2 className="h-3.5 w-3.5 shrink-0 text-teal-400 animate-bounce" />
-                          Arthur Pendleton is speaking...
-                        </span>
-                      ) : micActive ? (
-                        <span className="text-emerald-400 flex items-center gap-1 text-center justify-center">
-                          <Mic className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
-                          Microphone Active: Speak now...
-                        </span>
-                      ) : (
-                        <span className="text-slate-400">Telephony audio link idle...</span>
-                      )}
-                    </div>
-
-                    <button
-                      onClick={hangUpVoiceSoftphone}
-                      className="w-full bg-red-600 hover:bg-red-500 text-white font-semibold text-[11px] py-1.5 px-4 rounded-xl flex items-center justify-center gap-1.5 transition duration-150"
-                    >
-                      <PhoneOff className="h-3.5 w-3.5" /> Disconnect Call
-                    </button>
-                  </div>
-                )}
-
-                {/* 3. Conversations Feed */}
-                {activeCall.transcript.map((line, idx) => (
-                  <div 
-                    key={idx} 
-                    className={`flex items-start gap-3 ${
-                      line.speaker === "admin" ? "justify-end text-right" : "justify-start text-left"
-                    }`}
-                  >
-                    {line.speaker !== "admin" && (
-                      <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-sm ${
-                        line.speaker === "system" ? "bg-slate-800 text-slate-400" : "bg-teal-500/10 text-teal-400 font-bold"
-                      }`}>
-                        {line.speaker === "system" ? <Bot className="h-4 w-4" /> : "P"}
-                      </div>
-                    )}
-
-                    <div className="max-w-[75%] space-y-1">
-                      <div className={`text-[10px] font-mono text-slate-500 flex items-center gap-1 ${line.speaker === "admin" ? "justify-end" : ""}`}>
-                        <span>
-                          {line.speaker === "admin" 
-                            ? (answeringMode === "voice" ? "Dr. Morreale (Voice Softphone)" : "Dr. Morreale (Typing-to-Speech)") 
-                            : line.speaker === "caller" 
-                            ? "Patient Concern" 
-                            : "System Logs"}
-                        </span>
-                        <span>•</span>
-                        <span>{new Date(line.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
-                      </div>
-                      
-                      <div className={`p-3.5 rounded-2xl text-sm leading-relaxed tracking-wide ${
-                        line.speaker === "admin" 
-                          ? "bg-teal-500 text-slate-950 rounded-tr-none font-medium" 
-                          : line.speaker === "caller"
-                          ? "bg-slate-900 border border-slate-800 text-white rounded-tl-none font-medium text-slate-100" 
-                          : "bg-slate-900/40 text-slate-400 text-xs border border-transparent italic"
-                      }`}>
-                        {line.text}
-                      </div>
-                    </div>
-
-                    {line.speaker === "admin" && (
-                      <div className="h-8 w-8 rounded-full bg-teal-500/10 border border-teal-500/20 flex items-center justify-center shrink-0 text-teal-400 text-xs font-bold">
-                        MD
-                      </div>
-                    )}
-                  </div>
-                ))}
-                
-                {activeCall.queue.length > 0 && (
-                  <div className="flex justify-end pr-10">
-                    <div className="bg-slate-905 border border-slate-800 px-3 py-1.5 rounded-full flex items-center gap-2 text-xs text-slate-400 animate-pulse">
-                      <Loader2 className="h-3 w-3 animate-spin text-teal-400" />
-                      <span>In Twilio speaking queue: "{activeCall.queue[0]}"</span>
-                    </div>
-                  </div>
-                )}
-                
-                <div ref={chatBottomRef} />
-              </div>
-            )}
-          </div>
-
-          {/* Quick Presets Select panel */}
-          {activeCall && (
-            <div className="p-4 bg-slate-900/30 border-t border-slate-800/80">
-              <p className="text-[10px] uppercase font-mono text-slate-400 mb-2 tracking-wider flex items-center gap-1.5">
-                <Sparkles className="h-3 w-3 text-teal-400" /> Quick Clinical Presets (Click to speak instantly via TTS)
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {presets.map((p, i) => (
-                  <button
-                    key={i}
-                    onClick={() => handleSendTTSMessage(p)}
-                    className="text-xs bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 px-3 py-2 rounded-lg transition text-left hover:text-white max-w-sm"
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Composition Text Area */}
-          <div className="p-4 bg-slate-900 border-t border-slate-800 flex items-center gap-3">
-            <textarea
-              value={typedMessage}
-              disabled={!activeCall}
-              onChange={(e) => setTypedMessage(e.target.value)}
-              placeholder={activeCall ? "Type a clinical response for Twilio to speak out-loud live..." : "Connect a ringing call to open response typing..."}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendTTSMessage();
-                }
-              }}
-              className="flex-1 bg-slate-950 border border-slate-800 hover:border-slate-700 focus:border-teal-500 rounded-xl px-4 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-teal-500 resize-none h-12"
-            />
-            <button
-              onClick={() => handleSendTTSMessage()}
-              disabled={!activeCall || !typedMessage.trim() || isSendingMsg}
-              className="bg-teal-500 hover:bg-teal-400 active:translate-y-px disabled:bg-slate-800 disabled:text-slate-500 disabled:translate-y-0 h-11 w-11 rounded-xl flex items-center justify-center shrink-0 transition text-slate-950 shadow-lg shadow-teal-500/10"
-            >
-              {isSendingMsg ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
-            </button>
-          </div>
-
-        </section>
-
-        {/* RIGHT COLUMN: CALL LOGS HISTORY & VOICEMAILS (4/12 cols) */}
-        <div className="lg:col-span-4 space-y-6 flex flex-col">
-          
-          {/* SECURE PATIENT SIMULATOR CARD */}
-          <div className="bg-slate-950 border border-slate-800/80 rounded-2xl p-5 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium text-white tracking-tight flex items-center gap-1.5">
-                <Bot className="h-4 w-4 text-teal-400" /> Interactive Patient Simulator
-              </h3>
-              <span className="bg-teal-500/10 text-teal-400 text-[9px] uppercase px-2 py-0.5 rounded font-mono border border-teal-500/20">
-                Gemini Powered
-              </span>
-            </div>
-            
-            <p className="text-xs text-slate-400 leading-relaxed font-sans">
-              Test your intercept receptionist setup immediately! Run an off-hours test call to dialogue with an AI knee osteoarthritis patient.
-            </p>
-
-            <div className="space-y-3 pt-1">
               <div>
-                <label className="block text-[10px] uppercase tracking-wider font-mono text-slate-500 mb-1">Simulated Full Name</label>
-                <input
-                  type="text"
-                  value={simName}
-                  onChange={(e) => setSimName(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
-                />
+                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Messages & SMS</p>
+                <p className="text-2xl font-bold text-slate-900">{messages.length}</p>
               </div>
-
+            </CardContent>
+          </Card>
+          <Card className="rounded-2xl border-slate-200">
+            <CardContent className="p-6 flex items-center gap-4">
+              <div className="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center">
+                <FileText className="w-6 h-6 text-amber-600" />
+              </div>
               <div>
-                <label className="block text-[10px] uppercase tracking-wider font-mono text-slate-500 mb-1">Simulated Contact Number</label>
-                <input
-                  type="text"
-                  value={simPhone}
-                  onChange={(e) => setSimPhone(e.target.value)}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
-                />
+                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Quiz & Guides</p>
+                <p className="text-2xl font-bold text-slate-900">{quizLeads.length + guideLeads.length}</p>
               </div>
-
-              <button
-                onClick={triggerSimulation}
-                disabled={isSimulatingStart || !!activeCall}
-                className="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold py-2.5 px-3 rounded-lg border border-slate-800 transition flex items-center justify-center gap-2 hover:border-slate-700 disabled:bg-slate-900/50 disabled:text-slate-600 disabled:border-slate-950"
-              >
-                {isSimulatingStart ? <Loader2 className="h-3.5 w-3.5 animate-spin text-teal-400" /> : <PlusCircle className="h-3.5 w-3.5 text-teal-400" />}
-                Initiate Simulated Intercept Call
-              </button>
-            </div>
-          </div>
-
-          {/* PAST DEPOSITED LOGS (History Player) */}
-          <section className="bg-slate-950 border border-slate-800/80 rounded-2xl flex-1 flex flex-col p-5 space-y-4 shadow-xl overflow-hidden max-h-[500px]">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3 shrink-0">
-              <h3 className="text-sm font-medium text-white tracking-tight flex items-center gap-1.5">
-                <History className="h-4 w-4 text-teal-400" /> Clinical Voicemails & Records
-              </h3>
-              <button 
-                onClick={loadCallsHistory} 
-                className="text-[10px] text-teal-400 hover:text-teal-300 transition"
-                disabled={callsLoading}
-              >
-                {callsLoading ? "Refreshing..." : "Refresh Logs"}
-              </button>
-            </div>
-
-            {/* List log container */}
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-              {pastCalls.length === 0 ? (
-                <div className="text-center py-10 font-sans text-xs text-slate-500">
-                  No historical clinical log files recorded yet.
-                </div>
-              ) : (
-                pastCalls.map((log) => (
-                  <div 
-                    key={log.callSid} 
-                    className="p-3 bg-slate-900/80 border border-slate-800 rounded-xl space-y-2 hover:border-slate-700 transition"
-                  >
-                    {/* Header line */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-medium text-white">{log.callerName}</p>
-                        <p className="text-[10px] text-slate-400 font-mono">{log.callerPhone}</p>
-                      </div>
-                      
-                      {log.aiUrgency && (
-                        <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                          log.aiUrgency === "Critical" ? "bg-red-500/10 text-red-400 border border-red-500/20" :
-                          log.aiUrgency === "High" ? "bg-orange-500/10 text-orange-400 border border-orange-500/20" :
-                          log.aiUrgency === "Medium" ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" :
-                          "bg-slate-800 text-slate-400"
-                        }`}>
-                          {log.aiUrgency} Urgency
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Meta timestamps */}
-                    <div className="flex items-center gap-2 text-[10px] font-mono text-slate-500">
-                      <Clock className="w-3 w-3 shrink-0" />
-                      <span>{new Date(log.createdAt).toLocaleDateString()} {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                      {log.voicemailDuration ? (
-                        <>
-                          <span>•</span>
-                          <span>{log.voicemailDuration}s Rec</span>
-                        </>
-                      ) : null}
-                    </div>
-
-                    {/* AI Summarized Analysis details */}
-                    {log.aiSummary && (
-                      <div className="bg-slate-950/80 border border-slate-800/50 p-2.5 rounded-lg space-y-1.5">
-                        <div className="flex items-center gap-1 text-[9px] font-mono font-bold text-teal-400 uppercase tracking-widest">
-                          <Bot className="h-3 w-3 shrink-0" /> AI Diagnostic Summary
-                        </div>
-                        <p className="text-xs text-slate-300 leading-normal font-sans">
-                          {log.aiSummary}
-                        </p>
-                        {log.aiIntent && (
-                          <p className="text-[10px] font-mono text-slate-500">
-                            <b>Predicted Intent:</b> {log.aiIntent}
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Audio recording trigger */}
-                    {log.voicemailUrl ? (
-                      <button
-                        onClick={() => handlePlayVoicemail(log)}
-                        className="w-full bg-slate-950 shadow hover:bg-slate-800 text-teal-400 hover:text-white border border-slate-800 hover:border-teal-500/20 text-xs py-1.5 px-3 rounded-lg flex items-center justify-center gap-1.5 transition font-medium"
-                      >
-                        {playingVoicemailId === log.callSid ? (
-                          <>
-                            <Pause className="h-3.5 w-3.5 animate-spin" />
-                            <span>Stop Voicemail Playback</span>
-                          </>
-                        ) : (
-                          <>
-                            <Play className="h-3.5 w-3.5 fill-current" />
-                            <span>Play Left Voicemail Recording</span>
-                          </>
-                        )}
-                      </button>
-                    ) : (
-                      log.status === "completed" && (
-                        <p className="text-[10px] font-mono text-slate-500 italic">
-                          No voicemail recorded (Completed via live chat intercept).
-                        </p>
-                      )
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </section>
-
-        </div>
-
-      </div>
-
-      {/* Twilio & Webhook Diagnostics Modal */}
-      {diagnosticsModalOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700/80 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2 bg-teal-500/10 border border-teal-500/30 rounded-xl text-teal-400">
-                  <Server className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold text-white">Twilio Telephony & Webhook Diagnostics</h3>
-                  <p className="text-xs text-slate-400">Live configuration and connectivity verification</p>
-                </div>
+            </CardContent>
+          </Card>
+          <Card className="rounded-2xl border-slate-200">
+            <CardContent className="p-6 flex items-center gap-4">
+              <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center">
+                <Users className="w-6 h-6 text-indigo-600" />
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={loadDiagnostics}
-                  disabled={diagnosticsLoading}
-                  className="p-2 text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-800 rounded-lg transition disabled:opacity-50"
-                  title="Refresh Diagnostics"
-                >
-                  <RefreshCw className={`w-4 h-4 ${diagnosticsLoading ? "animate-spin" : ""}`} />
-                </button>
-                <button
-                  onClick={() => setDiagnosticsModalOpen(false)}
-                  className="p-2 text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-800 rounded-lg transition"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-6 overflow-y-auto space-y-6 text-sm">
-              {/* Webhook URLs for Twilio Console */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-teal-400 font-mono">
-                    Required Twilio Console Webhook URLs
-                  </h4>
-                  <span className="text-[11px] text-slate-400">Copy & paste into Twilio Console</span>
-                </div>
-
-                {/* Voice Webhook */}
-                <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-slate-200">1. Phone Number Voice Webhook ("A CALL COMES IN"):</span>
-                    <span className="text-[10px] font-mono text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded border border-teal-500/20">HTTP POST</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      readOnly
-                      value={diagnosticsData?.server?.voiceWebhookUrl || (typeof window !== "undefined" ? `${window.location.origin}/api/twilio/voice` : "")}
-                      className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 select-all"
-                    />
-                    <button
-                      onClick={() => {
-                        const url = diagnosticsData?.server?.voiceWebhookUrl || `${window.location.origin}/api/twilio/voice`;
-                        navigator.clipboard.writeText(url);
-                        setCopiedField("voiceWebhook");
-                        setTimeout(() => setCopiedField(null), 2000);
-                      }}
-                      className="shrink-0 bg-teal-500 hover:bg-teal-600 text-slate-950 text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5 transition"
-                    >
-                      {copiedField === "voiceWebhook" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                      {copiedField === "voiceWebhook" ? "Copied" : "Copy"}
-                    </button>
-                  </div>
-                  <p className="text-[11px] text-slate-400">
-                    Set in Twilio Console → <b>Phone Numbers</b> → <b>Active Numbers</b> → Click your active number → Under <b>Voice & Fax</b>, set "A CALL COMES IN" to <b>Webhook</b> and paste this URL.
-                  </p>
-                </div>
-
-                {/* TwiML App Webhook */}
-                <div className="p-3.5 bg-slate-950 border border-slate-800 rounded-xl space-y-1.5">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-semibold text-slate-200">2. TwiML App Voice Request URL:</span>
-                    <span className="text-[10px] font-mono text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded border border-teal-500/20">HTTP POST</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      readOnly
-                      value={diagnosticsData?.server?.voiceWebhookUrl || (typeof window !== "undefined" ? `${window.location.origin}/api/twilio/voice` : "")}
-                      className="w-full bg-slate-900 border border-slate-700/80 rounded-lg px-3 py-2 text-xs font-mono text-slate-200 select-all"
-                    />
-                    <button
-                      onClick={() => {
-                        const url = diagnosticsData?.server?.voiceWebhookUrl || `${window.location.origin}/api/twilio/voice`;
-                        navigator.clipboard.writeText(url);
-                        setCopiedField("twimlApp");
-                        setTimeout(() => setCopiedField(null), 2000);
-                      }}
-                      className="shrink-0 bg-teal-500 hover:bg-teal-600 text-slate-950 text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5 transition"
-                    >
-                      {copiedField === "twimlApp" ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                      {copiedField === "twimlApp" ? "Copied" : "Copy"}
-                    </button>
-                  </div>
-                  <p className="text-[11px] text-slate-400">
-                    Set in Twilio Console → <b>Voice</b> → <b>TwiML</b> → <b>TwiML Apps</b> → Click your TwiML App → set "Voice Request URL" to this URL.
-                  </p>
-                </div>
-              </div>
-
-              {/* Status Checks */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-teal-400 font-mono">
-                  Live System Health Checks
-                </h4>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {/* WebRTC Client */}
-                  <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-medium text-white">Browser Softphone (WebRTC)</p>
-                      <p className="text-[10px] text-slate-400 font-mono">
-                        State: {deviceState.toUpperCase()}
-                      </p>
-                    </div>
-                    <span className={`text-xs px-2.5 py-1 rounded-full font-mono font-semibold ${
-                      deviceState === "ready" || deviceState === "connected"
-                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                        : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                    }`}>
-                      {deviceState === "ready" ? "READY" : deviceState === "connected" ? "CONNECTED" : deviceState === "error" ? "ERROR" : "PENDING"}
-                    </span>
-                  </div>
-
-                  {/* Twilio Token Status */}
-                  <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-medium text-white">Twilio Capability Token</p>
-                      <p className="text-[10px] text-slate-400 font-mono">
-                        {twilioToken ? "Issued & Active (3600s TTL)" : "Not Issued"}
-                      </p>
-                    </div>
-                    <span className={`text-xs px-2.5 py-1 rounded-full font-mono font-semibold ${
-                      twilioToken
-                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                        : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                    }`}>
-                      {twilioToken ? "ACTIVE" : "MISSING"}
-                    </span>
-                  </div>
-
-                  {/* Presence Heartbeat */}
-                  <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-medium text-white">Admin Presence Heartbeat</p>
-                      <p className="text-[10px] text-slate-400 font-mono">
-                        Online Admins: {activeAdminCount}
-                      </p>
-                    </div>
-                    <span className={`text-xs px-2.5 py-1 rounded-full font-mono font-semibold ${
-                      presenceOnline
-                        ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                        : "bg-red-500/10 text-red-400 border border-red-500/20"
-                    }`}>
-                      {presenceOnline ? "ONLINE" : "OFFLINE"}
-                    </span>
-                  </div>
-
-                  {/* SSE Event Stream */}
-                  <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-medium text-white">Real-Time Event Stream</p>
-                      <p className="text-[10px] text-slate-400 font-mono">
-                        /api/twilio/events
-                      </p>
-                    </div>
-                    <span className="text-xs px-2.5 py-1 rounded-full font-mono font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                      CONNECTED
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Environment Variables Status */}
-              {diagnosticsData?.environment && (
-                <div className="space-y-2">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-teal-400 font-mono">
-                    Backend Environment Variables
-                  </h4>
-                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2 text-xs font-mono">
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400">TWILIO_ACCOUNT_SID:</span>
-                      <span className={diagnosticsData.environment.hasAccountSid ? "text-emerald-400" : "text-red-400"}>
-                        {diagnosticsData.environment.accountSidMasked || "MISSING"}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400">TWILIO_API_KEY:</span>
-                      <span className={diagnosticsData.environment.hasApiKey ? "text-emerald-400" : "text-red-400"}>
-                        {diagnosticsData.environment.apiKeyMasked || "MISSING"}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400">TWILIO_API_SECRET:</span>
-                      <span className={diagnosticsData.environment.hasApiSecret ? "text-emerald-400" : "text-red-400"}>
-                        {diagnosticsData.environment.hasApiSecret ? "CONFIGURED (SECRET)" : "MISSING"}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400">TWILIO_TWIML_APP_SID:</span>
-                      <span className={diagnosticsData.environment.hasTwimlAppSid ? "text-emerald-400" : "text-red-400"}>
-                        {diagnosticsData.environment.twimlAppSidMasked || "MISSING"}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400">TWILIO_NUMBER:</span>
-                      <span className={diagnosticsData.environment.hasTwilioNumber ? "text-emerald-400" : "text-red-400"}>
-                        {diagnosticsData.environment.twilioNumber || "MISSING"}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-slate-400">GEMINI_API_KEY:</span>
-                      <span className={diagnosticsData.environment.hasGeminiKey ? "text-emerald-400" : "text-amber-400"}>
-                        {diagnosticsData.environment.hasGeminiKey ? "CONFIGURED" : "OMITTED"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Netlify Deployment Notice */}
-              <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-4 space-y-2">
-                <div className="flex items-center gap-2 text-xs font-semibold text-slate-200">
-                  <AlertTriangle className="w-4 h-4 text-amber-400" />
-                  <span>Important Note on Netlify & Serverless Hosting</span>
-                </div>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Twilio requires an active Node server endpoint to receive HTTP POST webhooks (<code className="text-teal-400 font-mono">/api/twilio/voice</code>) and mint WebRTC tokens. If deploying on standard static Netlify CDN, ensure the backend is running as a container (e.g. Google Cloud Run, Render, Railway) and proxied in Netlify's redirects file, or test in this active preview environment.
+              <div>
+                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Total Leads</p>
+                <p className="text-2xl font-bold text-slate-900">
+                  {new Set([
+                    ...bookings.map(b => b.email), 
+                    ...messages.map(m => m.email),
+                    ...quizLeads.map(q => q.email),
+                    ...guideLeads.map(g => g.email)
+                  ].filter(Boolean)).size}
                 </p>
               </div>
-            </div>
+            </CardContent>
+          </Card>
+        </div>
 
-            {/* Modal Footer */}
-            <div className="px-6 py-3 border-t border-slate-800 bg-slate-950/60 flex items-center justify-end">
-              <button
-                onClick={() => setDiagnosticsModalOpen(false)}
-                className="bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold px-4 py-2 rounded-lg transition"
-              >
-                Close Diagnostics
-              </button>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <TabsList className="bg-white border border-slate-200 p-1 rounded-xl h-auto flex flex-wrap gap-1">
+              <TabsTrigger value="messages" className="rounded-lg px-4 py-2 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+                Messages ({messages.length})
+              </TabsTrigger>
+              <TabsTrigger value="bookings" className="rounded-lg px-4 py-2 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+                Bookings ({bookings.length})
+              </TabsTrigger>
+              <TabsTrigger value="leads" className="rounded-lg px-4 py-2 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+                Quiz & Guides ({quizLeads.length + guideLeads.length})
+              </TabsTrigger>
+              <TabsTrigger value="calls" className="rounded-lg px-4 py-2 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+                Calls ({callLogs.length})
+              </TabsTrigger>
+              <TabsTrigger value="analytics" className="rounded-lg px-4 py-2 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+                Analytics
+              </TabsTrigger>
+              <TabsTrigger value="hologram" className="rounded-lg px-4 py-2 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+                Hologram
+              </TabsTrigger>
+            </TabsList>
+
+            <div className="relative w-full sm:w-64">
+              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input 
+                placeholder={`Search ${activeTab}...`} 
+                className="pl-10 rounded-xl border-slate-200 bg-white"
+                value={activeTab === "bookings" ? bookingSearch : messageSearch}
+                onChange={(e) => {
+                  if (activeTab === "bookings") setBookingSearch(e.target.value);
+                  else setMessageSearch(e.target.value);
+                }}
+              />
             </div>
           </div>
-        </div>
-      )}
 
+          <TabsContent value="bookings">
+            <Card className="rounded-2xl border-slate-200 overflow-hidden">
+              <Table>
+                <TableHeader className="bg-slate-50">
+                  <TableRow>
+                    <TableHead>Date Requested</TableHead>
+                    <TableHead>Patient</TableHead>
+                    <TableHead>Contact</TableHead>
+                    <TableHead>Preferred Date</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredBookings.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center py-20 text-slate-400">No bookings found</TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredBookings.map((b) => (
+                      <TableRow key={b.id}>
+                        <TableCell className="text-xs text-slate-500">
+                          {formatSafeDate(b.createdAt)}
+                        </TableCell>
+                        <TableCell className="font-bold text-slate-900">{b.name}</TableCell>
+                        <TableCell className="text-sm">
+                          <div className="flex flex-col">
+                            <span>{b.email}</span>
+                            <span className="text-slate-500 text-xs">{b.phone}</span>
+                            {b.reportName && b.reportName !== "No file uploaded" && (
+                              <span className="text-teal-600 text-[10px] font-bold mt-1 flex items-center">
+                                <Send className="w-2 h-2 mr-1" />
+                                File: {b.reportName}
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="rounded-full border-teal-200 bg-teal-50 text-teal-700">
+                            {b.date}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs text-slate-500">{b.type}</TableCell>
+                        <TableCell>
+                          <Select 
+                            defaultValue={b.status || "pending"} 
+                            onValueChange={(val) => handleStatusChange(b.id, val)}
+                          >
+                            <SelectTrigger className={`h-8 w-32 rounded-lg text-xs font-medium ${
+                              b.status === "confirmed" ? "bg-emerald-50 text-emerald-700 border-emerald-200" :
+                              b.status === "cancelled" ? "bg-red-50 text-red-700 border-red-200" :
+                              "bg-amber-50 text-amber-700 border-amber-200"
+                            }`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl">
+                              <SelectItem value="pending">Pending</SelectItem>
+                              <SelectItem value="confirmed">Confirmed</SelectItem>
+                              <SelectItem value="cancelled">Cancelled</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            {b.reportUrl && (
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="text-teal-600 hover:text-teal-700 hover:bg-teal-50 rounded-lg"
+                                onClick={() => window.open(b.reportUrl, '_blank')}
+                                title="View/Download File"
+                              >
+                                <Download className="w-4 h-4" />
+                              </Button>
+                            )}
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="text-slate-500 hover:text-slate-600 hover:bg-slate-100 rounded-lg"
+                              onClick={() => handlePrint(b, 'booking')}
+                              title="Print to PDF"
+                            >
+                              <Printer className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                              onClick={() => setDeleteConfirm({ type: "bookings", id: b.id })}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="messages">
+            <Card className="rounded-2xl border-slate-200 overflow-hidden">
+              <Table>
+                <TableHeader className="bg-slate-50">
+                  <TableRow>
+                    <TableHead>Date Sent</TableHead>
+                    <TableHead>Sender & Channel</TableHead>
+                    <TableHead>Contact</TableHead>
+                    <TableHead>Message Preview</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredMessages.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-20 text-slate-400">
+                        <div className="flex flex-col items-center gap-3">
+                          <MessageSquare className="w-8 h-8 text-slate-300" />
+                          <p className="text-sm font-medium">No messages found</p>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={handleSyncCommunications}
+                            disabled={isSyncing}
+                            className="rounded-xl border-teal-200 text-teal-700 hover:bg-teal-50"
+                          >
+                            <RefreshCw className={`w-3.5 h-3.5 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
+                            Sync Messages from Twilio
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredMessages.map((m) => (
+                      <TableRow key={m.id}>
+                        <TableCell className="text-xs text-slate-500 whitespace-nowrap">
+                          {formatSafeDate(m.createdAt)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            <span className="font-bold text-slate-900">{m.name}</span>
+                            <div className="flex items-center gap-1.5">
+                              {m.source === "sms" ? (
+                                <Badge variant="outline" className="rounded-md border-blue-200 bg-blue-50 text-blue-700 text-[10px] px-1.5 py-0 font-bold uppercase">
+                                  SMS
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="rounded-md border-teal-200 bg-teal-50 text-teal-700 text-[10px] px-1.5 py-0 font-bold uppercase">
+                                  Web Form
+                                </Badge>
+                              )}
+                              {m.direction && (
+                                <span className="text-[10px] text-slate-400 lowercase">{m.direction}</span>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          <div className="flex flex-col">
+                            <span>{m.email}</span>
+                            {m.phone && <span className="text-slate-500 text-xs font-mono">{m.phone}</span>}
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-md">
+                          <p className="text-sm text-slate-600 line-clamp-2">{m.message}</p>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-2">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="text-slate-500 hover:text-slate-600 hover:bg-slate-100 rounded-lg"
+                              onClick={() => handlePrint(m, 'message')}
+                              title="Print to PDF"
+                            >
+                              <Printer className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="text-slate-500 hover:text-slate-600 hover:bg-slate-100 rounded-lg"
+                              onClick={() => setSelectedMessage(m)}
+                              title="View full message"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                              onClick={() => setDeleteConfirm({ type: "contact_messages", id: m.id })}
+                              title="Delete message"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </Card>
+          </TabsContent>
+
+          {/* Leads Tab: Pain Quiz and Guide Downloads */}
+          <TabsContent value="leads">
+            <div className="space-y-6">
+              {/* Pain Quiz Submissions */}
+              <Card className="rounded-2xl border-slate-200 overflow-hidden">
+                <CardHeader className="bg-slate-50 border-b border-slate-200 py-4">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base font-bold flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-teal-600" />
+                      Pain Quiz Assessments ({quizLeads.length})
+                    </CardTitle>
+                    <Badge variant="outline" className="border-teal-200 bg-teal-50 text-teal-700">
+                      High Intent
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Patient</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead>Joint / Injury</TableHead>
+                      <TableHead>Biologic Recommendations</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {quizLeads.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-12 text-slate-400">
+                          No quiz submissions recorded yet
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      quizLeads.map((q) => (
+                        <TableRow key={q.id}>
+                          <TableCell className="text-xs text-slate-500 whitespace-nowrap">
+                            {formatSafeDate(q.createdAt)}
+                          </TableCell>
+                          <TableCell className="font-bold text-slate-900">{q.name}</TableCell>
+                          <TableCell className="text-sm">
+                            <div className="flex flex-col">
+                              <span>{q.email}</span>
+                              <span className="text-slate-500 text-xs font-mono">{q.phone}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className="bg-teal-50 text-teal-800 border-teal-200">
+                              {q.joint}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs text-slate-600">
+                            {Array.isArray(q.recommendations) 
+                              ? q.recommendations.map((r: any) => r.title || r).join(", ")
+                              : "Wharton's Jelly, Exosomes, PRP"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg h-8 w-8"
+                              onClick={() => setDeleteConfirm({ type: "pain_quiz_results", id: q.id })}
+                              title="Delete quiz submission"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </Card>
+
+              {/* Free Guide Downloads */}
+              <Card className="rounded-2xl border-slate-200 overflow-hidden">
+                <CardHeader className="bg-slate-50 border-b border-slate-200 py-4">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base font-bold flex items-center gap-2">
+                      <Download className="w-4 h-4 text-sky-600" />
+                      Free Guide Downloads ({guideLeads.length})
+                    </CardTitle>
+                    <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-700">
+                      Regenerative 101
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email & Phone</TableHead>
+                      <TableHead>Joint of Concern</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {guideLeads.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-12 text-slate-400">
+                          No guide downloads recorded yet
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      guideLeads.map((g) => (
+                        <TableRow key={g.id}>
+                          <TableCell className="text-xs text-slate-500 whitespace-nowrap">
+                            {formatSafeDate(g.createdAt)}
+                          </TableCell>
+                          <TableCell className="font-bold text-slate-900">{g.name}</TableCell>
+                          <TableCell className="text-sm">
+                            <div className="flex flex-col">
+                              <span>{g.email}</span>
+                              <span className="text-slate-500 text-xs font-mono">{g.phone}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="border-slate-200 text-slate-700">
+                              {g.jointConcern || "General Orthopedic"}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg h-8 w-8"
+                              onClick={() => setDeleteConfirm({ type: "guide_downloads", id: g.id })}
+                              title="Delete guide download"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Calls & Voicemails Tab */}
+          <TabsContent value="calls">
+            <Card className="rounded-2xl border-slate-200 overflow-hidden">
+              <CardHeader className="bg-slate-50 border-b border-slate-200 py-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-bold flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-teal-600" />
+                    Phone Inquiries & Voicemails ({callLogs.length})
+                  </CardTitle>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="text-xs rounded-xl"
+                    onClick={() => window.location.href = "/admin/phone"}
+                  >
+                    Open Live Phone Console
+                    <ExternalLink className="w-3.5 h-3.5 ml-1.5" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Time</TableHead>
+                    <TableHead>Caller</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Summary / Transcript</TableHead>
+                    <TableHead className="text-right">Recording</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {callLogs.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-20 text-slate-400">
+                        No phone call or voicemail records found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    callLogs.map((c) => (
+                      <TableRow key={c.id}>
+                        <TableCell className="text-xs text-slate-500 whitespace-nowrap">
+                          {formatSafeDate(c.createdAt)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-bold text-slate-900">{c.callerName}</span>
+                            <span className="text-xs text-slate-500 font-mono">{c.callerPhone}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={c.status === "completed" ? "bg-slate-100 text-slate-700" : "bg-emerald-50 text-emerald-700"}>
+                            {c.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="max-w-md">
+                          <p className="text-xs text-slate-600 line-clamp-2">
+                            {c.aiSummary || (c.transcript && c.transcript.length > 0 ? c.transcript[c.transcript.length - 1].text : "Call logged")}
+                          </p>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {c.voicemailUrl ? (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="rounded-lg text-xs"
+                              onClick={() => window.open(c.voicemailUrl, '_blank')}
+                            >
+                              Play Audio
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-slate-400">No Audio</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="analytics" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <Card className="rounded-2xl border-slate-200 lg:col-span-1">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg font-bold flex items-center gap-2">
+                      <Activity className="w-5 h-5 text-teal-600" />
+                      Live Traffic
+                    </CardTitle>
+                    <Badge className="bg-teal-500 text-white animate-pulse border-none">
+                      {activeSessions.filter(s => {
+                        const lastActive = s.lastActive?.toDate ? s.lastActive.toDate() : (s.lastActive?.seconds ? new Date(s.lastActive.seconds * 1000) : null);
+                        return lastActive && (new Date().getTime() - lastActive.getTime()) < 120000;
+                      }).length} Active
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {activeSessions
+                      .filter(s => {
+                        const lastActive = s.lastActive?.toDate ? s.lastActive.toDate() : (s.lastActive?.seconds ? new Date(s.lastActive.seconds * 1000) : null);
+                        return lastActive && (new Date().getTime() - lastActive.getTime()) < 120000;
+                      })
+                      .slice(0, 5)
+                      .map((s) => (
+                        <div key={s.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-slate-900 truncate max-w-[150px]">
+                              {s.page === "/" ? "Home" : s.page.replace("/", "").charAt(0).toUpperCase() + s.page.slice(2)}
+                            </span>
+                            <span className="text-[10px] text-slate-500">
+                              Session: {s.sessionId.slice(0, 8)}...
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 text-[10px] text-teal-600 font-medium">
+                            <Clock className="w-3 h-3" />
+                            Just now
+                          </div>
+                        </div>
+                      ))}
+                    {activeSessions.filter(s => {
+                      const lastActive = s.lastActive?.toDate ? s.lastActive.toDate() : (s.lastActive?.seconds ? new Date(s.lastActive.seconds * 1000) : null);
+                      return lastActive && (new Date().getTime() - lastActive.getTime()) < 120000;
+                    }).length === 0 && (
+                      <div className="text-center py-10 text-slate-400 text-sm">
+                        No active users right now
+                      </div>
+                    )}
+                  </div>
+
+                  <Button 
+                    variant="outline" 
+                    className="w-full mt-6 rounded-xl border-slate-200 text-slate-600"
+                    onClick={() => window.open('https://analytics.google.com', '_blank')}
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Open Google Analytics
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl border-slate-200 lg:col-span-2">
+                <CardHeader>
+                  <CardTitle className="text-lg font-bold flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-teal-600" />
+                    Traffic Trend (Last 7 Days)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={Array.from({ length: 7 }).map((_, i) => {
+                      const d = subDays(new Date(), 6 - i);
+                      const count = events.filter(e => {
+                        const eventDate = e.createdAt?.toDate ? e.createdAt.toDate() : (e.createdAt?.seconds ? new Date(e.createdAt.seconds * 1000) : null);
+                        return e.type === "page_view" && eventDate && isSameDay(eventDate, d);
+                      }).length;
+                      return {
+                        name: format(d, "MMM dd"),
+                        views: count
+                      };
+                    })}>
+                      <defs>
+                        <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#0d9488" stopOpacity={0.1}/>
+                          <stop offset="95%" stopColor="#0d9488" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} dy={10} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
+                      <Tooltip 
+                        contentStyle={{ 
+                          borderRadius: '12px', 
+                          border: 'none', 
+                          boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                          fontSize: '12px'
+                        }} 
+                      />
+                      <Area type="monotone" dataKey="views" stroke="#0d9488" strokeWidth={3} fillOpacity={1} fill="url(#colorViews)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card className="rounded-2xl border-slate-200">
+                <CardHeader>
+                  <CardTitle className="text-lg font-bold flex items-center gap-2">
+                    <BarChart3 className="w-5 h-5 text-teal-600" />
+                    Popular Pages
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart 
+                      layout="vertical"
+                      data={Object.entries(
+                        events
+                          .filter(e => e.type === "page_view")
+                          .reduce((acc: any, e) => {
+                            acc[e.page] = (acc[e.page] || 0) + 1;
+                            return acc;
+                          }, {})
+                      ).map(([page, count]) => ({
+                        name: page === "/" ? "Home" : page.replace("/", "").split("/").pop()?.replace("-", " ").toUpperCase() || page,
+                        views: count
+                      })).sort((a: any, b: any) => b.views - a.views).slice(0, 5)}
+                      margin={{ left: 40 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                      <XAxis type="number" hide />
+                      <YAxis 
+                        dataKey="name" 
+                        type="category" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{ fill: '#475569', fontSize: 11, fontWeight: 600 }}
+                        width={100}
+                      />
+                      <Tooltip 
+                        cursor={{ fill: '#f8fafc' }}
+                        contentStyle={{ 
+                          borderRadius: '12px', 
+                          border: 'none', 
+                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' 
+                        }} 
+                      />
+                      <Bar dataKey="views" fill="#0d9488" radius={[0, 4, 4, 0]} barSize={20} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl border-slate-200">
+                <CardHeader>
+                  <CardTitle className="text-lg font-bold flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-teal-600" />
+                    Conversion Summary
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <p className="text-sm font-bold text-slate-900">Booking Conversion Rate</p>
+                        <p className="text-xs text-slate-500">Bookings vs. Unique Sessions</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xl font-bold text-teal-600">
+                          {events.length > 0 ? ((bookings.length / Math.max(1, new Set(events.map(e => e.sessionId)).size)) * 100).toFixed(1) : 0}%
+                        </p>
+                      </div>
+                    </div>
+                    <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                      <div 
+                        className="bg-teal-500 h-full transition-all duration-1000"
+                        style={{ 
+                          width: `${Math.min(100, (bookings.length / Math.max(1, new Set(events.map(e => e.sessionId)).size)) * 100)}%` 
+                        }}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 pt-4">
+                      <div className="p-4 bg-teal-50 rounded-2xl border border-teal-100">
+                        <p className="text-[10px] uppercase font-bold text-teal-600 mb-1">Total Sessions</p>
+                        <p className="text-xl font-bold text-teal-900">
+                          {new Set(events.map(e => e.sessionId)).size}
+                        </p>
+                      </div>
+                      <div className="p-4 bg-sky-50 rounded-2xl border border-sky-100">
+                        <p className="text-[10px] uppercase font-bold text-sky-600 mb-1">Total Page Views</p>
+                        <p className="text-xl font-bold text-sky-900">
+                          {events.filter(e => e.type === "page_view").length}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="hologram">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <Card className="rounded-2xl border-slate-200 overflow-hidden">
+                <CardHeader className="border-b border-slate-100 bg-slate-50/50">
+                  <CardTitle className="text-lg font-bold flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-teal-600" />
+                    Current Daily Hologram
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-8">
+                  <div className="aspect-[9/16] max-w-[300px] mx-auto bg-slate-950 rounded-3xl border border-slate-800 relative overflow-hidden flex items-center justify-center shadow-2xl">
+                    {currentHologram?.url ? (
+                      <img 
+                        src={currentHologram.url} 
+                        alt="Current Daily Hologram" 
+                        className="w-full h-full object-contain opacity-90"
+                        style={{
+                          filter: "hue-rotate(160deg) brightness(1.2) contrast(1.1) drop-shadow(0 0 15px rgba(20, 184, 166, 0.4))"
+                        }}
+                      />
+                    ) : (
+                      <div className="text-slate-500 text-center p-8">
+                        <Activity className="w-12 h-12 mx-auto mb-4 opacity-20" />
+                        <p className="text-sm">No hologram generated yet.</p>
+                      </div>
+                    )}
+                    <motion.div 
+                      animate={{ top: ["-10%", "110%"] }}
+                      transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                      className="absolute left-0 right-0 h-[2px] bg-teal-400/60 shadow-[0_0_20px_rgba(45,212,191,0.8)] z-10 pointer-events-none"
+                    />
+                  </div>
+
+                  <div className="mt-8 p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Last Successful Update:</span>
+                      <span className="font-bold text-slate-900">
+                        {currentHologram?.lastUpdated?.toDate ? currentHologram.lastUpdated.toDate().toLocaleString() : "Never"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Last AI Attempt:</span>
+                      <span className="font-bold text-slate-900">
+                        {currentHologram?.lastAttempt?.toDate ? currentHologram.lastAttempt.toDate().toLocaleString() : "None"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-500">Status:</span>
+                      <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 h-5 text-[10px]">
+                        ACTIVE
+                      </Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl border-slate-200">
+                <CardHeader>
+                  <CardTitle className="text-lg font-bold flex items-center gap-2">
+                    <RefreshCw className="w-5 h-5 text-teal-600" />
+                    Hologram Controls
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="p-6 bg-teal-50 rounded-2xl border border-teal-100 space-y-4">
+                    <h4 className="font-bold text-teal-900">Manual Regeneration</h4>
+                    <p className="text-sm text-teal-700 leading-relaxed">
+                      If the current AI-generated image is incorrect or low quality, you can manually trigger a new generation. This will update the image for all patients immediately.
+                    </p>
+                    <Button 
+                      onClick={generateHologram}
+                      disabled={isGenerating}
+                      className="w-full bg-teal-600 hover:bg-teal-700 text-white rounded-xl h-12 font-bold shadow-lg shadow-teal-600/20"
+                    >
+                      {isGenerating ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                          Generating New Hologram...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Regenerate Daily Hologram
+                        </>
+                      )}
+                    </Button>
+                  </div>
+
+                  <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                    <h4 className="font-bold text-slate-900">Automation Settings</h4>
+                    <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-200">
+                      <div className="space-y-1">
+                        <p className="text-sm font-bold text-slate-900">Daily Refresh</p>
+                        <p className="text-xs text-slate-500">Automatically refresh at midnight</p>
+                      </div>
+                      <Badge className="bg-teal-500 text-white">ENABLED</Badge>
+                    </div>
+                    <p className="text-[10px] text-slate-400 italic">
+                      Note: Daily refresh is handled by the first visitor of the day to optimize API costs.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h5 className="text-xs font-bold text-slate-400 uppercase tracking-widest">AI Prompt Context</h5>
+                    <div className="p-4 bg-slate-900 rounded-xl text-[11px] font-mono text-teal-400/80 leading-relaxed">
+                      "A high-tech, medical-grade holographic render of a FULL HUMAN BODY anatomy... futuristic, glowing teal and cyan neon lines on a dark background..."
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+        </Tabs>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={!!deleteConfirm} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
+          <DialogContent className="sm:max-w-md rounded-3xl">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold">Confirm Deletion</DialogTitle>
+              <DialogDescription className="text-slate-500">
+                Are you sure you want to delete this record? This action cannot be undone and the data will be permanently removed.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex justify-end gap-3 pt-4">
+              <Button variant="outline" onClick={() => setDeleteConfirm(null)} className="rounded-xl px-6">
+                Cancel
+              </Button>
+              <Button onClick={handleDelete} variant="destructive" className="rounded-xl px-6">
+                Delete Record
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Message Detail Dialog */}
+        <Dialog open={!!selectedMessage} onOpenChange={(open) => !open && setSelectedMessage(null)}>
+          <DialogContent className="sm:max-w-lg rounded-3xl">
+            <DialogHeader>
+              <div className="flex items-center gap-2 mb-2">
+                <MessageSquare className="w-5 h-5 text-sky-600" />
+                <DialogTitle className="text-xl font-bold">Message from {selectedMessage?.name}</DialogTitle>
+              </div>
+              <DialogDescription className="text-slate-500">
+                Sent on {formatSafeDate(selectedMessage?.createdAt)}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-6 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <p className="text-[10px] uppercase font-bold text-slate-400 mb-1">Email</p>
+                  <p className="text-sm font-medium text-slate-900">{selectedMessage?.email}</p>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <p className="text-[10px] uppercase font-bold text-slate-400 mb-1">Phone</p>
+                  <p className="text-sm font-medium text-slate-900">{selectedMessage?.phone || "N/A"}</p>
+                </div>
+              </div>
+              <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                <p className="text-[10px] uppercase font-bold text-slate-400 mb-2">Message</p>
+                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{selectedMessage?.message}</p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3">
+              <Button variant="outline" onClick={() => selectedMessage && handlePrint(selectedMessage, 'message')} className="rounded-xl px-6">
+                <Printer className="w-4 h-4 mr-2" />
+                Print to PDF
+              </Button>
+              <Button onClick={() => setSelectedMessage(null)} className="rounded-xl px-8">
+                Close
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </main>
     </div>
   );
 }
