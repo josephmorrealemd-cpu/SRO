@@ -189,9 +189,21 @@ export default function AdminDashboard() {
   const [messageSearch, setMessageSearch] = useState("");
   const [guideSearch, setGuideSearch] = useState("");
   const [quizSearch, setQuizSearch] = useState("");
-  const [activeTab, setActiveTab] = useState("guides");
+  const [activeTab, setActiveTab] = useState("leads");
+  const [leadFilter, setLeadFilter] = useState<"all" | "guides" | "quiz">("all");
   const [selectedMessage, setSelectedMessage] = useState<ContactMessage | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: string, id: string } | null>(null);
+
+  const forceHardReload = () => {
+    try {
+      if ('caches' in window) {
+        caches.keys().then((names) => {
+          names.forEach((name) => caches.delete(name));
+        });
+      }
+    } catch {}
+    window.location.href = window.location.pathname + '?v=' + Date.now();
+  };
   
   // Hologram State
   const [currentHologram, setCurrentHologram] = useState<{ url: string, lastUpdated: any, lastAttempt: any } | null>(null);
@@ -597,6 +609,7 @@ export default function AdminDashboard() {
 
   const getSearchPlaceholder = () => {
     switch (activeTab) {
+      case "leads": return "Search quiz & guide leads (name, email, phone, joint)...";
       case "guides": return "Search guide downloads (name, email, joint)...";
       case "quiz": return "Search quiz assessments...";
       case "bookings": return "Search bookings...";
@@ -608,11 +621,11 @@ export default function AdminDashboard() {
 
   const getSearchValue = () => {
     switch (activeTab) {
+      case "leads": return guideSearch || quizSearch;
       case "guides": return guideSearch;
       case "quiz": return quizSearch;
       case "bookings": return bookingSearch;
       case "messages": return messageSearch;
-      case "leads": return guideSearch || quizSearch;
       default: return "";
     }
   };
@@ -740,11 +753,30 @@ export default function AdminDashboard() {
         </div>
       </header>
 
+      {/* Real-time Refresh Action Bar */}
+      <div className="bg-sky-50 border-b border-sky-100 px-4 py-2.5 text-xs text-sky-900">
+        <div className="container mx-auto flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Badge className="bg-sky-600 text-white text-[10px] px-2 py-0.5 font-bold">Admin Console</Badge>
+            <span className="font-medium">Managing leads, quiz results, and downloads. If recent delete buttons are not showing, please click Reload.</span>
+          </div>
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="h-7 text-xs px-3 bg-white border-sky-300 text-sky-800 hover:bg-sky-100 font-semibold shadow-xs flex items-center gap-1.5 cursor-pointer"
+            onClick={forceHardReload}
+          >
+            <RefreshCw className="w-3.5 h-3.5 text-sky-600" />
+            <span>Reload Dashboard</span>
+          </Button>
+        </div>
+      </div>
+
       <main className="container mx-auto px-4 py-8 space-y-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <Card 
-            className={`rounded-2xl border transition-all cursor-pointer hover:shadow-md ${activeTab === "guides" ? "border-sky-500 ring-2 ring-sky-500/20 bg-sky-50/20" : "border-slate-200 hover:border-sky-300"}`}
-            onClick={() => setActiveTab("guides")}
+            className={`rounded-2xl border transition-all cursor-pointer hover:shadow-md ${activeTab === "leads" && leadFilter === "guides" ? "border-sky-500 ring-2 ring-sky-500/20 bg-sky-50/20" : "border-slate-200 hover:border-sky-300"}`}
+            onClick={() => { setActiveTab("leads"); setLeadFilter("guides"); }}
           >
             <CardContent className="p-5 flex items-center gap-3.5">
               <div className="w-11 h-11 bg-sky-100 text-sky-600 rounded-xl flex items-center justify-center shrink-0">
@@ -761,8 +793,8 @@ export default function AdminDashboard() {
           </Card>
 
           <Card 
-            className={`rounded-2xl border transition-all cursor-pointer hover:shadow-md ${activeTab === "quiz" ? "border-teal-500 ring-2 ring-teal-500/20 bg-teal-50/20" : "border-slate-200 hover:border-teal-300"}`}
-            onClick={() => setActiveTab("quiz")}
+            className={`rounded-2xl border transition-all cursor-pointer hover:shadow-md ${activeTab === "leads" && leadFilter === "quiz" ? "border-teal-500 ring-2 ring-teal-500/20 bg-teal-50/20" : "border-slate-200 hover:border-teal-300"}`}
+            onClick={() => { setActiveTab("leads"); setLeadFilter("quiz"); }}
           >
             <CardContent className="p-5 flex items-center gap-3.5">
               <div className="w-11 h-11 bg-teal-100 text-teal-600 rounded-xl flex items-center justify-center shrink-0">
@@ -808,7 +840,10 @@ export default function AdminDashboard() {
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl border-slate-200">
+          <Card 
+            className={`rounded-2xl border transition-all cursor-pointer hover:shadow-md ${activeTab === "leads" && leadFilter === "all" ? "border-indigo-500 ring-2 ring-indigo-500/20 bg-indigo-50/20" : "border-slate-200 hover:border-indigo-300"}`}
+            onClick={() => { setActiveTab("leads"); setLeadFilter("all"); }}
+          >
             <CardContent className="p-5 flex items-center gap-3.5">
               <div className="w-11 h-11 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center shrink-0">
                 <Users className="w-5 h-5" />
@@ -828,16 +863,9 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <Tabs value={activeTab === "guides" || activeTab === "quiz" ? "leads" : activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <TabsList className="bg-white border border-slate-200 p-1.5 rounded-2xl h-auto flex flex-wrap gap-1.5 shadow-xs">
-              <TabsTrigger 
-                value="guides" 
-                className="rounded-xl px-4 py-2.5 text-xs font-semibold data-[state=active]:bg-sky-600 data-[state=active]:text-white flex items-center gap-1.5 transition-all shadow-xs"
-              >
-                <Download className="w-3.5 h-3.5" />
-                Guide Downloads ({guideLeads.length})
-              </TabsTrigger>
               <TabsTrigger 
                 value="messages" 
                 className="rounded-xl px-4 py-2.5 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white flex items-center gap-1.5 transition-all shadow-xs"
@@ -853,11 +881,11 @@ export default function AdminDashboard() {
                 Bookings ({bookings.length})
               </TabsTrigger>
               <TabsTrigger 
-                value="quiz" 
+                value="leads" 
                 className="rounded-xl px-4 py-2.5 text-xs font-semibold data-[state=active]:bg-teal-700 data-[state=active]:text-white flex items-center gap-1.5 transition-all shadow-xs"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                Pain Quiz ({quizLeads.length})
+                Quiz & Guides ({quizLeads.length + guideLeads.length})
               </TabsTrigger>
               <TabsTrigger 
                 value="calls" 
