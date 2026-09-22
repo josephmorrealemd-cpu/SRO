@@ -1376,7 +1376,7 @@ export default function AdminPhoneConsole() {
                     </button>
                   </div>
                   <p className="text-[11px] text-slate-400">
-                    Set in Twilio Console → <b>Phone Numbers</b> → <b>Active Numbers</b> → Click your number (<b>+1 720-776-9165</b>) → Under <b>Voice & Fax</b>, set "A CALL COMES IN" to <b>Webhook</b> and paste this URL.
+                    Set in Twilio Console → <b>Phone Numbers</b> → <b>Active Numbers</b> → Click your active number → Under <b>Voice & Fax</b>, set "A CALL COMES IN" to <b>Webhook</b> and paste this URL.
                   </p>
                 </div>
 
@@ -1406,7 +1406,7 @@ export default function AdminPhoneConsole() {
                     </button>
                   </div>
                   <p className="text-[11px] text-slate-400">
-                    Set in Twilio Console → <b>Voice</b> → <b>TwiML</b> → <b>TwiML Apps</b> → Click your app (<b>AP7cbcd3ed4a7920a5c9cf50a555412719</b>) → set "Voice Request URL" to this URL.
+                    Set in Twilio Console → <b>Voice</b> → <b>TwiML</b> → <b>TwiML Apps</b> → Click your TwiML App → set "Voice Request URL" to this URL.
                   </p>
                 </div>
               </div>
