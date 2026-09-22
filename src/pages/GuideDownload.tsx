@@ -1,508 +1,400 @@
-import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { useState } from "react";
+import { motion } from "motion/react";
 import { Link } from "react-router-dom";
 import { 
-  GitFork, 
-  Layers, 
-  Check, 
-  X, 
-  ArrowRight, 
-  Sparkles, 
+  Download, 
+  CheckCircle2, 
+  BookOpen, 
   ShieldCheck, 
-  Award, 
-  Activity, 
-  Flame, 
-  HeartHandshake, 
+  Sparkles, 
   FileText, 
+  Stethoscope, 
+  ArrowRight, 
   Phone, 
-  ChevronRight, 
-  HelpCircle,
-  Clock,
-  Compass
+  Lock,
+  ChevronRight,
+  ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BookingDialog } from "@/components/ui/BookingDialog";
-import { trackEvent } from "@/lib/analytics";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { db, handleFirestoreError, OperationType } from "@/lib/firebase";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { trackEvent, getSessionId } from "@/lib/analytics";
+import { triggerNurtureSequence } from "@/lib/emailClient";
+import { toast } from "sonner";
 
-type ScenarioId = "oa_medicare" | "athletes" | "post_surgical" | "acute_subacute";
+export default function GuideDownload() {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [jointConcern, setJointConcern] = useState("Knee");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDownloaded, setIsDownloaded] = useState(false);
 
-interface ScenarioData {
-  id: ScenarioId;
-  title: string;
-  badge: string;
-  patientProfile: string;
-  primaryProblem: string;
-  recommendedBiologic: string;
-  secondaryOption: string;
-  rationale: string;
-  clinicalBreakdown: {
-    scaffolding: string;
-    signaling: string;
-    downtime: string;
-    surgeryAvoidance: string;
+  const guidePdfPath = "/downloads/regenerative-medicine-101.pdf";
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      const payload = {
+        name,
+        email,
+        phone: phone || "Not provided",
+        guideName: "Biologic Regeneration 101: Wharton's Jelly, Exosomes, and PRP",
+        jointConcern,
+        sessionId: getSessionId(),
+        createdAt: serverTimestamp(),
+      };
+
+      // 1. Save lead to Firestore
+      await addDoc(collection(db, "guide_downloads"), payload);
+
+      // 2. Track analytics
+      trackEvent(
+        "guide_downloaded",
+        "/guide/regenerative-medicine-101",
+        payload.guideName,
+        JSON.stringify({ email, jointConcern })
+      );
+
+      // 3. Trigger 3-Email Nurture Sequence
+      await triggerNurtureSequence({
+        email,
+        name,
+        source: "guide",
+        jointConcern,
+        templateId: "welcome_expectations",
+      });
+
+      trackEvent(
+        "email_nurture_triggered",
+        "/guide/regenerative-medicine-101",
+        "welcome_expectations",
+        JSON.stringify({ email, source: "guide" })
+      );
+
+      // 4. Trigger browser PDF download
+      const link = document.createElement("a");
+      link.href = guidePdfPath;
+      link.download = "Biologic-Regeneration-101-Summit-Orthopedics.pdf";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      setIsDownloaded(true);
+      toast.success("Guide Downloaded!", {
+        description: "Your PDF has downloaded and a welcome email has been dispatched.",
+      });
+    } catch (error) {
+      console.error("Error processing guide download:", error);
+      handleFirestoreError(error, OperationType.WRITE, "guide_downloads");
+      // Still allow download even if Firestore encounters network issue
+      const link = document.createElement("a");
+      link.href = guidePdfPath;
+      link.download = "Biologic-Regeneration-101-Summit-Orthopedics.pdf";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setIsDownloaded(true);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
-  whyItWorks: string[];
-}
-
-const SCENARIOS: Record<ScenarioId, ScenarioData> = {
-  oa_medicare: {
-    id: "oa_medicare",
-    title: "Osteoarthritis & Medicare / Older Active Adults",
-    badge: "Most Common: Cartilage Wear & Joint Space Narrowing",
-    patientProfile: "Ages 50+, experiencing progressive joint stiffness, bone-on-bone friction, difficulty with stairs or walking, and exploring non-surgical alternatives to total knee or hip replacement.",
-    primaryProblem: "Cartilage chondrocyte death, loss of lubricating synovial hyaluronic acid, and loss of physical joint space scaffolding.",
-    recommendedBiologic: "Wharton's Jelly + Exosomes Dual Therapy (Tier 1 Priority)",
-    secondaryOption: "Wharton's Jelly Umbilical Allograft Alone",
-    rationale: "PRP alone often fails in moderate-to-severe OA because platelets do not provide 3D extracellular matrix scaffolding. Wharton's Jelly delivers high-molecular-weight hyaluronic acid and structural matrix to physically cushion the joint, while Exosomes supply nanoscale anti-inflammatory signals to halt cartilage breakdown.",
-    clinicalBreakdown: {
-      scaffolding: "High (3D extracellular matrix + structural collagen)",
-      signaling: "Ultra-High (exosome microRNA + cytokines)",
-      downtime: "None (walk out immediately, resumption of daily life)",
-      surgeryAvoidance: "Primary clinical objective: delay or completely avoid arthroplasty",
-    },
-    whyItWorks: [
-      "Natural high-molecular-weight hyaluronic acid restores synovial joint cushioning",
-      "Supplies structural scaffolding that autologous PRP cannot provide",
-      "Exosomes block catabolic enzymes (MMP-13, IL-1beta) that destroy cartilage",
-      "Administered via precise high-resolution musculoskeletal ultrasound"
-    ]
-  },
-  athletes: {
-    id: "athletes",
-    title: "Athletes, CrossFitters & High Performers",
-    badge: "High-Demand: Rapid Recovery & Zero Surgical Downtime",
-    patientProfile: "Competitive athletes, runners, weightlifters, and active Colorado outdoor enthusiasts suffering from rotator cuff strains, meniscus tears, patellar tendinopathy, or Achilles pain.",
-    primaryProblem: "Soft tissue micro-tears and repetitive mechanical stress. Surgery causes irreversible joint biomechanics changes and extensive scar tissue.",
-    recommendedBiologic: "Exosome Cellular Signaling + High-Intensity MSK Laser",
-    secondaryOption: "High-Concentration PRP + MSK Laser (for minor acute strains)",
-    rationale: "Surgery cuts through healthy tissue and requires 6-12 months of rehab. Exosomes deliver targeted microRNA directly to tenocytes and chondrocytes, accelerating cellular repair without fibrous scarring. Combined with high-power MSK Laser, ATP synthesis is increased for rapid return to sport.",
-    clinicalBreakdown: {
-      scaffolding: "Targeted to soft tissue remodeling",
-      signaling: "Maximum cellular reprogramming & tenocyte activation",
-      downtime: "24–48 hours light rest; resume modified training immediately",
-      surgeryAvoidance: "Preserves native joint anatomy and prevents postoperative stiffness",
-    },
-    whyItWorks: [
-      "No general anesthesia, crutches, or lengthy surgical recovery time",
-      "Direct cellular instruction: directs native cells to deposit organized Type I collagen",
-      "Deep-tissue class IV MSK laser accelerates tissue microcirculation and lymphatic drainage",
-      "Safe for active competitors seeking to maintain their competitive edge"
-    ]
-  },
-  post_surgical: {
-    id: "post_surgical",
-    title: "Post-Surgical & Failed Surgery Cases",
-    badge: "Complex: Lingering Pain After Previous Procedures",
-    patientProfile: "Patients who underwent arthroscopic meniscus trimming, partial rotator cuff repair, or ACL reconstruction, but continue to experience persistent pain, stiffness, or early onset arthritis.",
-    primaryProblem: "Surgical resection of meniscus tissue creates localized stress concentrations; post-surgical joint inflammation accelerates secondary osteoarthritis.",
-    recommendedBiologic: "Wharton's Jelly Allograft + Exosome Signaling",
-    secondaryOption: "Exosome Regenerative Infusion with MSK Laser",
-    rationale: "When meniscus or labrum is shaved or trimmed, the joint loses shock absorption. Wharton's Jelly replenishes structural extracellular matrix cushioning in the depleted compartment, while Exosomes resolve the chronic post-operative inflammatory state.",
-    clinicalBreakdown: {
-      scaffolding: "High (cushions surgically thinned joint compartments)",
-      signaling: "Suppresses chronic postoperative neuro-inflammation",
-      downtime: "None (zero surgical trauma)",
-      surgeryAvoidance: "Prevents revision surgery or early progression to joint replacement",
-    },
-    whyItWorks: [
-      "Compensates for lost meniscus or labral cushion with dense extracellular matrix",
-      "Quenches chronic synovitis and surgical scar hypersensitivity",
-      "Restores natural joint kinematics without opening the joint capsule",
-      "Evaluated by a board-certified surgeon who understands previous operative reports"
-    ]
-  },
-  acute_subacute: {
-    id: "acute_subacute",
-    title: "Acute Strains & Early-Stage Injuries (<3 Months)",
-    badge: "Early Intervention: Preserving Tissue Before Chronic Wear",
-    patientProfile: "Recent ankle sprain, acute mild rotator cuff strain, or initial knee hyperextension that has not responded to 3-6 weeks of rest, ice, and physical therapy.",
-    primaryProblem: "Early tendon or ligament fiber disruption without long-standing cartilage degeneration or bone-on-bone friction.",
-    recommendedBiologic: "High-Concentration PRP + MSK Laser Protocol",
-    secondaryOption: "Exosome Infusion (if high athletic demand or slow recovery)",
-    rationale: "Because the joint space is anatomically intact and the injury is acute, your body's own platelets can provide adequate growth factors. We concentrate your autologous blood 5-7x to trigger natural vascularization and tissue knitting.",
-    clinicalBreakdown: {
-      scaffolding: "Fibrin matrix from concentrated autologous plasma",
-      signaling: "High autologous PDGF, TGF-beta, and VEGF",
-      downtime: "24–48 hours mild soreness, rapid return to activity",
-      surgeryAvoidance: "Heals micro-tears before they progress to full-thickness surgical tears",
-    },
-    whyItWorks: [
-      "100% autologous biological treatment prepared bedside in our Westminster clinic",
-      "Stimulates neovascularization (new blood supply) to slow-healing tendons",
-      "Cost-effective first-line biologic for acute soft-tissue injuries",
-      "Can be stepped up to Wharton's Jelly or Exosomes if structural wear is detected"
-    ]
-  }
-};
-
-export default function BiologicsDecision() {
-  const [selectedScenario, setSelectedScenario] = useState<ScenarioId>("oa_medicare");
-
-  useEffect(() => {
-    trackEvent("page_view", "/biologics-decision");
-  }, []);
-
-  const handleSelectScenario = (id: ScenarioId) => {
-    setSelectedScenario(id);
-    trackEvent("decision_tool_interaction", "/biologics-decision", id);
-  };
-
-  const scenario = SCENARIOS[selectedScenario];
 
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8">
-      <title>Biologics Decision Tool | Wharton’s Jelly vs Exosomes vs PRP</title>
+      <title>Free Guide: Biologic Regeneration 101 | Summit Regenerative Orthopedics</title>
       <meta 
         name="description" 
-        content="Interactive clinical decision tool comparing Wharton's Jelly, Exosomes, and PRP. Designed by Board-Certified Orthopedic Surgeon Dr. Morreale to help you choose the right non-surgical joint treatment." 
+        content="Download your free clinical guide: 'Biologic Regeneration 101: Wharton’s Jelly, Exosomes, and PRP' by Board-Certified Orthopedic Surgeon Dr. Joseph Morreale." 
       />
 
-      <div className="max-w-6xl mx-auto space-y-12">
-        {/* Header Section */}
-        <div className="text-center max-w-3xl mx-auto space-y-3">
+      <div className="max-w-5xl mx-auto space-y-12">
+        {/* Top Header */}
+        <div className="text-center max-w-2xl mx-auto space-y-3">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-50 border border-teal-200 text-teal-800 text-xs font-semibold uppercase tracking-wider">
-            <GitFork className="w-3.5 h-3.5 text-teal-600" />
-            Interactive Clinical Guidance
+            <BookOpen className="w-3.5 h-3.5 text-teal-600" />
+            Complimentary Clinical Publication
           </div>
-          <h1 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight">
-            Biologics Decision Tool
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 tracking-tight">
+            Biologic Regeneration 101
           </h1>
           <p className="text-base sm:text-lg text-slate-600">
-            Compare <strong>Wharton’s Jelly</strong>, <strong>Exosomes</strong>, and <strong>PRP</strong>. Understand why advanced biologics are prioritized for structural cartilage loss, athletic recovery, and avoiding surgery.
+            A Board-Certified Orthopedic Surgeon's Guide to Wharton's Jelly, Exosomes, and PRP: How to Avoid Surgery and Restore Joint Cartilage.
           </p>
         </div>
 
-        {/* Clinical Scenario Selector Tabs */}
-        <div className="space-y-4">
-          <div className="text-center">
-            <span className="text-xs font-bold uppercase tracking-widest text-teal-700">Step 1: Select Your Clinical Profile</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {[
-              { id: "oa_medicare", title: "Osteoarthritis & Medicare", icon: ShieldCheck, tag: "Bone-on-Bone & OA" },
-              { id: "athletes", title: "Athletes & High Performers", icon: Flame, tag: "Zero Downtime" },
-              { id: "post_surgical", title: "Post-Surgical & Failed Care", icon: HeartHandshake, tag: "Lingering Pain" },
-              { id: "acute_subacute", title: "Acute Injury (< 3 Months)", icon: Activity, tag: "Early Sprains" },
-            ].map((tab) => {
-              const Icon = tab.icon;
-              const isSelected = selectedScenario === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => handleSelectScenario(tab.id as ScenarioId)}
-                  className={`p-4 sm:p-5 rounded-2xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${
-                    isSelected
-                      ? "bg-white border-teal-600 shadow-lg shadow-teal-900/5 ring-2 ring-teal-600"
-                      : "bg-white/80 border-slate-200 hover:border-teal-300 hover:bg-white text-slate-700"
-                  }`}
-                >
-                  <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-                        isSelected ? "bg-teal-600 text-white" : "bg-slate-100 text-slate-600"
-                      }`}>
-                        <Icon className="w-5 h-5" />
-                      </div>
-                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                        isSelected ? "bg-teal-100 text-teal-800" : "bg-slate-100 text-slate-500"
-                      }`}>
-                        {tab.tag}
-                      </span>
-                    </div>
-                    <h3 className="font-bold text-slate-900 text-base leading-snug">
-                      {tab.title}
-                    </h3>
-                  </div>
-                  {isSelected && (
-                    <div className="mt-3 flex items-center text-xs font-semibold text-teal-700">
-                      Active Pathway <ArrowRight className="w-3.5 h-3.5 ml-1" />
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Interactive Scenario Recommendation Card */}
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={selectedScenario}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden"
-          >
-            {/* Top Priority Header */}
-            <div className="bg-slate-900 text-white p-6 sm:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-              <div className="space-y-2">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/20 border border-teal-400/30 text-teal-300 text-xs font-bold uppercase tracking-wider">
-                  <Sparkles className="w-3.5 h-3.5 text-teal-400" />
-                  {scenario.badge}
-                </div>
-                <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
-                  {scenario.title}
+        {/* Main Gated Content Layout */}
+        <div className="grid lg:grid-cols-12 gap-8 items-start">
+          {/* Left Column: Guide Overview & Table of Contents */}
+          <div className="lg:col-span-7 space-y-8">
+            {/* Mockup Presentation Box */}
+            <div className="bg-gradient-to-br from-slate-900 via-teal-950 to-slate-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden border border-teal-800/30">
+              <div className="relative z-10 space-y-4">
+                <span className="text-[11px] uppercase tracking-widest text-teal-400 font-bold bg-teal-500/20 px-3 py-1 rounded-full border border-teal-400/30 inline-block">
+                  Authored by Joseph Morreale, MD
+                </span>
+                <h2 className="text-2xl sm:text-3xl font-bold text-white">
+                  Why Surgery Isn't Your Only Option for Joint Wear
                 </h2>
-                <p className="text-slate-300 text-sm max-w-2xl leading-relaxed">
-                  {scenario.patientProfile}
+                <p className="text-slate-300 text-sm leading-relaxed">
+                  Traditional orthopedics offers a binary choice: temporary cortisone shots that break down cartilage, or total joint replacement. This comprehensive guide reveals how next-generation biologics provide a proven third path.
+                </p>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2">
+                  <div className="bg-white/10 rounded-xl p-3 backdrop-blur-xs text-center">
+                    <span className="text-xl font-bold text-teal-300 block">5</span>
+                    <span className="text-[11px] text-slate-300">Clinical Chapters</span>
+                  </div>
+                  <div className="bg-white/10 rounded-xl p-3 backdrop-blur-xs text-center">
+                    <span className="text-xl font-bold text-teal-300 block">100%</span>
+                    <span className="text-[11px] text-slate-300">Evidence-Based</span>
+                  </div>
+                  <div className="bg-white/10 rounded-xl p-3 backdrop-blur-xs text-center col-span-2 sm:col-span-1">
+                    <span className="text-xl font-bold text-teal-300 block">Free</span>
+                    <span className="text-[11px] text-slate-300">Instant PDF Access</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Chapters Breakdown */}
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm space-y-5">
+              <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+                <FileText className="w-5 h-5 text-teal-600" />
+                What You'll Learn Inside This Free Guide:
+              </h3>
+
+              <div className="space-y-4">
+                {[
+                  {
+                    num: "1",
+                    title: "The Cortisone Dilemma",
+                    desc: "Why repetitive steroid injections accelerate joint cartilage loss and chondrocyte apoptosis according to recent peer-reviewed studies."
+                  },
+                  {
+                    num: "2",
+                    title: "Wharton's Jelly: The Extracellular Cushion",
+                    desc: "How umbilical cord allografts deliver high-molecular-weight hyaluronic acid and physical 3D matrix scaffolding for bone-on-bone joints."
+                  },
+                  {
+                    num: "3",
+                    title: "Exosomes & Athletic Cellular Signaling",
+                    desc: "The science of nanovesicles delivering microRNA instructions directly to tenocytes for rapid tendon/ligament remodeling without scar tissue."
+                  },
+                  {
+                    num: "4",
+                    title: "Autologous PRP: Capabilities & Limitations",
+                    desc: "When platelet-rich plasma works best (acute sprains) and why platelets alone fall short in advanced degenerative osteoarthritis."
+                  },
+                  {
+                    num: "5",
+                    title: "The Surgery-Avoidance Pathway",
+                    desc: "Clinical criteria, patient outcomes, and how ultrasound-guided precision makes non-surgical recovery predictable."
+                  }
+                ].map((chap) => (
+                  <div key={chap.num} className="flex items-start gap-4 p-3 rounded-2xl hover:bg-slate-50 transition-colors">
+                    <div className="w-8 h-8 rounded-full bg-teal-50 text-teal-700 font-bold flex items-center justify-center shrink-0 text-sm mt-0.5">
+                      {chap.num}
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-slate-900 text-sm">{chap.title}</h4>
+                      <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">{chap.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Gated Download Form */}
+          <div className="lg:col-span-5">
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border-2 border-teal-600 shadow-xl space-y-6 sticky top-24">
+              <div className="space-y-2 text-center">
+                <div className="w-12 h-12 rounded-2xl bg-teal-100 text-teal-700 mx-auto flex items-center justify-center">
+                  <Download className="w-6 h-6" />
+                </div>
+                <h3 className="text-2xl font-bold text-slate-900">
+                  {isDownloaded ? "Download Successful!" : "Get Instant Access"}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {isDownloaded 
+                    ? "Your PDF is downloading. You can also re-download below or take our quick quiz."
+                    : "Fill out the quick form below to download your copy immediately."}
                 </p>
               </div>
 
-              <div className="shrink-0">
-                <BookingDialog
-                  title={`Orthopedic Evaluation: ${scenario.title}`}
-                  description={`Consultation with Dr. Morreale focusing on: ${scenario.recommendedBiologic}`}
-                  trigger={
-                    <button className="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 text-white font-bold py-3.5 px-6 rounded-2xl text-sm transition-all shadow-lg shadow-teal-600/30 active:scale-98">
-                      Book Consult for This Protocol
-                    </button>
-                  }
-                />
-              </div>
-            </div>
-
-            {/* Content Body */}
-            <div className="p-6 sm:p-10 space-y-8">
-              {/* Primary Matched Protocol Box */}
-              <div className="grid md:grid-cols-3 gap-6">
-                <div className="md:col-span-2 space-y-4">
-                  <div>
-                    <span className="text-xs font-bold text-teal-600 uppercase tracking-wider block">
-                      Default Clinical Priority
-                    </span>
-                    <h3 className="text-2xl font-bold text-slate-900 mt-1">
-                      {scenario.recommendedBiologic}
-                    </h3>
+              {!isDownloaded ? (
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="name" className="text-xs font-semibold text-slate-700">Full Name *</Label>
+                    <Input
+                      id="name"
+                      placeholder="e.g. Sarah Jenkins"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                      className="rounded-xl h-11"
+                    />
                   </div>
 
-                  <p className="text-slate-700 text-sm sm:text-base leading-relaxed">
-                    {scenario.rationale}
-                  </p>
-
-                  <div className="bg-slate-50 rounded-2xl p-5 border border-slate-200/80 space-y-3">
-                    <h4 className="font-bold text-slate-900 text-sm">Key Clinical Mechanisms:</h4>
-                    <div className="space-y-2">
-                      {scenario.whyItWorks.map((item, idx) => (
-                        <div key={idx} className="flex items-start gap-2.5 text-xs sm:text-sm text-slate-700">
-                          <Check className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
-                          <span>{item}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Scorecard / Breakdown */}
-                <div className="bg-teal-50/60 border border-teal-100 rounded-2xl p-6 flex flex-col justify-between space-y-6">
-                  <div className="space-y-4">
-                    <h4 className="font-bold text-teal-950 text-base border-b border-teal-200 pb-2">
-                      Clinical Parameters
-                    </h4>
-                    
-                    <div className="space-y-3 text-xs sm:text-sm">
-                      <div>
-                        <span className="text-slate-500 block text-[11px] uppercase tracking-wider font-semibold">Structural Scaffolding</span>
-                        <span className="font-bold text-slate-900">{scenario.clinicalBreakdown.scaffolding}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-500 block text-[11px] uppercase tracking-wider font-semibold">Cellular Signaling Power</span>
-                        <span className="font-bold text-slate-900">{scenario.clinicalBreakdown.signaling}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-500 block text-[11px] uppercase tracking-wider font-semibold">Post-Procedure Downtime</span>
-                        <span className="font-bold text-slate-900">{scenario.clinicalBreakdown.downtime}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-500 block text-[11px] uppercase tracking-wider font-semibold">Surgical Goal</span>
-                        <span className="font-bold text-teal-800">{scenario.clinicalBreakdown.surgeryAvoidance}</span>
-                      </div>
-                    </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="email" className="text-xs font-semibold text-slate-700">Email Address *</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="sarah@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      className="rounded-xl h-11"
+                    />
+                    <span className="text-[10px] text-slate-400">We'll also email a backup copy directly to this address.</span>
                   </div>
 
-                  <div className="pt-2 border-t border-teal-200">
-                    <div className="text-xs text-slate-600 mb-2">
-                      <strong className="text-slate-900">Alternative Consideration:</strong> {scenario.secondaryOption}
-                    </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="phone" className="text-xs font-semibold text-slate-700">Phone Number (Optional)</Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="720-000-0000"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="rounded-xl h-11"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="joint" className="text-xs font-semibold text-slate-700">Primary Joint of Concern</Label>
+                    <select
+                      id="joint"
+                      value={jointConcern}
+                      onChange={(e) => setJointConcern(e.target.value)}
+                      className="w-full h-11 px-3 rounded-xl border border-slate-200 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    >
+                      <option value="Knee">Knee (Osteoarthritis, Meniscus)</option>
+                      <option value="Shoulder">Shoulder (Rotator Cuff, Labrum)</option>
+                      <option value="Hip">Hip (Joint Space Narrowing)</option>
+                      <option value="Spine / Back">Spine / Lower Back</option>
+                      <option value="Ankle / Foot">Ankle / Achilles / Foot</option>
+                      <option value="Multiple Joints">Multiple Joints</option>
+                    </select>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={isSubmitting || !name || !email}
+                    className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold h-12 rounded-xl text-sm transition-all shadow-lg shadow-teal-600/20 active:scale-98"
+                  >
+                    {isSubmitting ? "Generating Download..." : (
+                      <>
+                        <Download className="w-4 h-4 mr-2" />
+                        Download Free Guide (PDF)
+                      </>
+                    )}
+                  </Button>
+
+                  <div className="flex items-center justify-center gap-2 text-[11px] text-slate-400 pt-1">
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>Your privacy is protected. No spam ever.</span>
+                  </div>
+                </form>
+              ) : (
+                <div className="space-y-4 pt-2 text-center">
+                  <div className="p-4 bg-teal-50 rounded-2xl border border-teal-200 text-teal-900 space-y-2">
+                    <CheckCircle2 className="w-8 h-8 text-teal-600 mx-auto" />
+                    <p className="text-sm font-bold">Your PDF Guide is on its way!</p>
+                    <p className="text-xs text-teal-700">
+                      If your download did not start automatically, please click below to view or save:
+                    </p>
+                    <a
+                      href={guidePdfPath}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 font-bold text-xs bg-teal-600 text-white px-4 py-2 rounded-lg hover:bg-teal-700 transition-colors shadow-xs"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" /> Direct PDF Download Link
+                    </a>
+                  </div>
+
+                  <div className="pt-2 space-y-2">
+                    <p className="text-xs font-semibold text-slate-700">
+                      Ready to find out which biologic is right for your joint?
+                    </p>
                     <Link
                       to="/pain-quiz"
-                      className="w-full inline-flex items-center justify-center bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2.5 px-4 rounded-xl text-xs transition-colors shadow-xs"
+                      className="w-full inline-flex items-center justify-center bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-4 rounded-xl text-sm transition-all"
                     >
-                      Verify Compatibility in Quiz <ChevronRight className="w-3.5 h-3.5 ml-1" />
+                      Take 2-Minute Pain Quiz <ArrowRight className="w-4 h-4 ml-1.5" />
                     </Link>
                   </div>
                 </div>
+              )}
+
+              {/* Accompanying Downloads Box */}
+              <div className="border-t border-slate-100 pt-5 space-y-3">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                  Companion Guides Also Available:
+                </span>
+                <div className="space-y-2 text-xs">
+                  <a
+                    href="/downloads/whartons-jelly-vs-prp.pdf"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 border border-slate-100 text-slate-700 group transition-colors"
+                  >
+                    <span className="font-medium">Wharton’s Jelly vs PRP Comparison</span>
+                    <Download className="w-3.5 h-3.5 text-teal-600 opacity-70 group-hover:opacity-100" />
+                  </a>
+                  <a
+                    href="/downloads/athletes-exosomes-guide.pdf"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 border border-slate-100 text-slate-700 group transition-colors"
+                  >
+                    <span className="font-medium">Why Athletes Choose Exosomes</span>
+                    <Download className="w-3.5 h-3.5 text-teal-600 opacity-70 group-hover:opacity-100" />
+                  </a>
+                </div>
               </div>
-            </div>
-          </motion.div>
-        </AnimatePresence>
-
-        {/* Head-to-Head Comparison Matrix */}
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-md p-6 sm:p-10 space-y-6">
-          <div className="text-center max-w-2xl mx-auto space-y-2">
-            <span className="text-xs font-bold uppercase tracking-widest text-teal-600">Head-to-Head Clinical Matrix</span>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-              Wharton’s Jelly vs. Exosomes vs. PRP
-            </h2>
-            <p className="text-sm text-slate-600">
-              Scientific differences between biological therapies. Why we prioritize Wharton’s Jelly + Exosomes over standalone PRP for complex joints.
-            </p>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs sm:text-sm border-collapse min-w-[650px]">
-              <thead>
-                <tr className="border-b-2 border-slate-200">
-                  <th className="py-3 px-4 font-bold text-slate-900 bg-slate-50 rounded-tl-xl">Feature</th>
-                  <th className="py-3 px-4 font-bold text-teal-900 bg-teal-50/70 border-x border-teal-200">
-                    Wharton’s Jelly Allograft
-                    <span className="block text-[10px] text-teal-600 font-normal">Primary Structural Choice</span>
-                  </th>
-                  <th className="py-3 px-4 font-bold text-teal-950 bg-teal-50/40 border-r border-teal-200">
-                    Exosome Signaling
-                    <span className="block text-[10px] text-teal-600 font-normal">Cellular Instruction</span>
-                  </th>
-                  <th className="py-3 px-4 font-bold text-slate-700 bg-slate-50 rounded-tr-xl">
-                    Autologous PRP
-                    <span className="block text-[10px] text-slate-500 font-normal">Traditional Standard</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                <tr>
-                  <td className="py-3.5 px-4 font-semibold text-slate-900">Biological Source</td>
-                  <td className="py-3.5 px-4 text-teal-900 bg-teal-50/30 font-medium">Umbilical cord extracellular matrix</td>
-                  <td className="py-3.5 px-4 text-slate-800 bg-teal-50/10">30–150nm cellular nanovesicles</td>
-                  <td className="py-3.5 px-4 text-slate-600">Patient's own blood platelets</td>
-                </tr>
-                <tr>
-                  <td className="py-3.5 px-4 font-semibold text-slate-900">Physical Joint Cushioning</td>
-                  <td className="py-3.5 px-4 text-teal-900 bg-teal-50/30 font-bold">
-                    <span className="inline-flex items-center text-teal-700"><Check className="w-4 h-4 mr-1" /> High (Hyaluronic Acid)</span>
-                  </td>
-                  <td className="py-3.5 px-4 text-slate-800 bg-teal-50/10">None (Pure signaling)</td>
-                  <td className="py-3.5 px-4 text-slate-500">None (Liquid plasma)</td>
-                </tr>
-                <tr>
-                  <td className="py-3.5 px-4 font-semibold text-slate-900">3D Extracellular Matrix Scaffold</td>
-                  <td className="py-3.5 px-4 text-teal-900 bg-teal-50/30 font-bold">
-                    <span className="inline-flex items-center text-teal-700"><Check className="w-4 h-4 mr-1" /> Yes (Collagens & Proteoglycans)</span>
-                  </td>
-                  <td className="py-3.5 px-4 text-slate-800 bg-teal-50/10">No (Instructional cargo)</td>
-                  <td className="py-3.5 px-4 text-slate-500">Minimal fibrin mesh</td>
-                </tr>
-                <tr>
-                  <td className="py-3.5 px-4 font-semibold text-slate-900">Cellular Messenger Payload</td>
-                  <td className="py-3.5 px-4 text-teal-900 bg-teal-50/30">Growth factors & cytokines</td>
-                  <td className="py-3.5 px-4 text-slate-800 bg-teal-50/10 font-bold">
-                    <span className="inline-flex items-center text-teal-700"><Check className="w-4 h-4 mr-1" /> Billions of microRNAs & peptides</span>
-                  </td>
-                  <td className="py-3.5 px-4 text-slate-600">Limited by patient's age & health</td>
-                </tr>
-                <tr>
-                  <td className="py-3.5 px-4 font-semibold text-slate-900">Severe Bone-on-Bone OA</td>
-                  <td className="py-3.5 px-4 text-teal-900 bg-teal-50/30 font-bold text-teal-700">Excellent (Delay Surgery)</td>
-                  <td className="py-3.5 px-4 text-slate-800 bg-teal-50/10 font-medium">Synergistic with WJ</td>
-                  <td className="py-3.5 px-4 text-slate-500">Low success in Grade 3-4 OA</td>
-                </tr>
-                <tr>
-                  <td className="py-3.5 px-4 font-semibold text-slate-900">Athletic Tendon & Ligament Tears</td>
-                  <td className="py-3.5 px-4 text-teal-900 bg-teal-50/30">High (for chronic tears)</td>
-                  <td className="py-3.5 px-4 text-slate-800 bg-teal-50/10 font-bold text-teal-700">Superior (Fast Remodeling)</td>
-                  <td className="py-3.5 px-4 text-slate-600">Good for mild sprains</td>
-                </tr>
-                <tr>
-                  <td className="py-3.5 px-4 font-semibold text-slate-900">Procedure Time & Guidance</td>
-                  <td className="py-3.5 px-4 text-teal-900 bg-teal-50/30">30 min under Dynamic Ultrasound</td>
-                  <td className="py-3.5 px-4 text-slate-800 bg-teal-50/10">30 min under Dynamic Ultrasound</td>
-                  <td className="py-3.5 px-4 text-slate-600">60 min (blood draw + centrifuge)</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Bottom Pathways & Funnel CTAs */}
-        <div className="grid md:grid-cols-3 gap-6 pt-4">
-          {/* Card 1: Pain Quiz */}
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 flex flex-col justify-between shadow-sm">
-            <div className="space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-700 flex items-center justify-center font-bold">
-                1
-              </div>
-              <h3 className="text-xl font-bold text-slate-900">Pain Self-Assessment Quiz</h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Answer 7 clinical questions regarding your injury duration, pain levels, and prior treatments to receive an instant biologics recommendation.
-              </p>
-            </div>
-            <div className="mt-6">
-              <Link
-                to="/pain-quiz"
-                className="w-full inline-flex items-center justify-center bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-xl text-sm transition-all shadow-md shadow-teal-600/10"
-              >
-                Take Self-Assessment Quiz <ArrowRight className="w-4 h-4 ml-1.5" />
-              </Link>
-            </div>
-          </div>
-
-          {/* Card 2: Free Guide */}
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 flex flex-col justify-between shadow-sm">
-            <div className="space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-900 flex items-center justify-center font-bold">
-                2
-              </div>
-              <h3 className="text-xl font-bold text-slate-900">Free Biologics 101 Guide</h3>
-              <p className="text-xs text-slate-600 leading-relaxed">
-                Download the free educational PDF guide authored by Dr. Morreale: “Biologic Regeneration 101: Wharton’s Jelly, Exosomes, and PRP.”
-              </p>
-            </div>
-            <div className="mt-6">
-              <Link
-                to="/guide/regenerative-medicine-101"
-                className="w-full inline-flex items-center justify-center bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-4 rounded-xl text-sm transition-all"
-              >
-                Download Free Guide <FileText className="w-4 h-4 ml-1.5" />
-              </Link>
-            </div>
-          </div>
-
-          {/* Card 3: Direct Consultation */}
-          <div className="bg-teal-900 text-white rounded-3xl p-6 sm:p-8 flex flex-col justify-between shadow-xl">
-            <div className="space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-teal-800 text-teal-300 flex items-center justify-center font-bold">
-                3
-              </div>
-              <h3 className="text-xl font-bold text-white">Board-Certified Consult</h3>
-              <p className="text-xs text-teal-100/80 leading-relaxed">
-                Schedule an in-person evaluation with Dr. Joseph Morreale at our Westminster clinic. Includes imaging review and ultrasound exam.
-              </p>
-            </div>
-            <div className="mt-6">
-              <BookingDialog
-                title="Book Biologics Consultation"
-                description="Meet with Dr. Morreale to determine whether Wharton's Jelly, Exosomes, or PRP is the right choice for your joint."
-                trigger={
-                  <button className="w-full bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold py-3 px-4 rounded-xl text-sm transition-all">
-                    Schedule Consultation
-                  </button>
-                }
-              />
             </div>
           </div>
         </div>
 
-        {/* Office Contact Bar */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-600">
-          <div className="flex items-center gap-3">
-            <Compass className="w-5 h-5 text-teal-600" />
-            <span>Summit Regenerative Orthopedics | 8753 Yates Dr, Suite 110, Westminster, CO 80031</span>
+        {/* Surgeon Endorsement Footer */}
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-teal-600 text-white font-bold flex items-center justify-center text-xl shrink-0">
+              JM
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-900 text-base">Joseph Morreale, MD</h4>
+              <p className="text-xs text-slate-600">
+                Board-Certified Orthopedic Surgeon specializing in non-surgical biological joint restoration.
+              </p>
+              <p className="text-xs text-teal-700 font-semibold mt-0.5">
+                Summit Regenerative Orthopedics | Westminster, CO
+              </p>
+            </div>
           </div>
-          <a
-            href="tel:7207769165"
-            className="font-bold text-teal-700 bg-teal-50 px-3 py-1.5 rounded-lg hover:bg-teal-100 transition-colors inline-flex items-center gap-1.5"
-          >
-            <Phone className="w-3.5 h-3.5" /> Questions? Call 720-776-9165
-          </a>
+
+          <div className="flex items-center gap-3 shrink-0">
+            <Link
+              to="/biologics-decision"
+              className="text-xs font-bold text-slate-700 hover:text-teal-700 bg-slate-100 hover:bg-slate-200 px-4 py-2.5 rounded-xl transition-colors"
+            >
+              Compare Biologics
+            </Link>
+            <a
+              href="tel:7207769165"
+              className="text-xs font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 px-4 py-2.5 rounded-xl transition-colors flex items-center gap-1.5"
+            >
+              <Phone className="w-3.5 h-3.5 text-teal-600" /> 720-776-9165
+            </a>
+          </div>
         </div>
       </div>
     </div>
