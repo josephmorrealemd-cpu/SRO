@@ -472,7 +472,26 @@ export default function AdminDashboard() {
 
     const { type, id } = deleteConfirm;
     try {
-      await deleteDoc(doc(db, type, id));
+      let deleted = false;
+      try {
+        await deleteDoc(doc(db, type, id));
+        deleted = true;
+      } catch (clientErr) {
+        console.warn("Client Firestore delete failed, falling back to /api/admin/delete:", clientErr);
+      }
+
+      if (!deleted) {
+        const res = await fetch("/api/admin/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ collection: type, id })
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || "Failed to delete record");
+        }
+      }
+
       if (type === "bookings") {
         setBookings(prev => prev.filter(b => b.id !== id));
       } else if (type === "contact_messages") {
@@ -486,9 +505,9 @@ export default function AdminDashboard() {
       }
       toast.success("Record deleted successfully");
       setDeleteConfirm(null);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, type);
-      toast.error("Failed to delete record");
+    } catch (error: any) {
+      console.error("Delete error:", error);
+      toast.error("Failed to delete record", { description: error?.message || "Please try again." });
     }
   };
 
@@ -1101,26 +1120,83 @@ export default function AdminDashboard() {
                   Regenerative 101 & Guides
                 </Badge>
               </CardHeader>
-              <div className="overflow-x-auto">
+
+              {/* High-visibility Quick Delete Cards */}
+              {filteredGuideLeads.length > 0 && (
+                <div className="p-4 sm:p-5 bg-sky-50/40 border-b border-slate-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                      <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                      Quick Manage / Delete Leads
+                    </span>
+                    <span className="text-xs text-slate-500">Click red Delete button to remove immediately</span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2.5">
+                    {filteredGuideLeads.map((g) => (
+                      <div 
+                        key={`quick-guide-${g.id}`} 
+                        className="p-4 bg-white rounded-2xl border-2 border-red-200 hover:border-red-400 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all"
+                      >
+                        <div className="flex items-start sm:items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-xl bg-sky-100 flex items-center justify-center text-sky-600 shrink-0 mt-0.5 sm:mt-0">
+                            <Download className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-slate-900 text-base">{g.name}</span>
+                              <Badge variant="outline" className="border-sky-300 bg-sky-50 text-sky-800 font-semibold px-2 py-0.5 text-xs">
+                                {g.jointConcern || "General Orthopedic"}
+                              </Badge>
+                              <span className="text-xs text-slate-500 font-mono">
+                                {formatSafeDate(g.createdAt)}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-slate-600 mt-1 flex-wrap">
+                              <span className="font-medium text-slate-800">{g.email}</span>
+                              {g.phone && (
+                                <span className="text-slate-700 font-mono bg-slate-100 px-2 py-0.5 rounded">
+                                  {g.phone}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <Button 
+                          variant="destructive" 
+                          size="sm" 
+                          className="bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl h-9 px-4 text-xs inline-flex items-center gap-2 shadow-xs cursor-pointer shrink-0 w-full sm:w-auto justify-center"
+                          onClick={() => setDeleteConfirm({ type: "guide_downloads", id: g.id })}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span>Delete Lead</span>
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="overflow-x-auto w-full">
                 <Table className="min-w-[700px]">
                   <TableHeader className="bg-slate-50">
                     <TableRow>
+                      <TableHead className="w-28 text-left font-bold text-red-600 pl-4">Delete</TableHead>
                       <TableHead className="w-44">Date & Time</TableHead>
-                      <TableHead className="w-48">Patient Name</TableHead>
+                      <TableHead className="w-44">Patient Name</TableHead>
                       <TableHead className="w-60">Email & Phone</TableHead>
-                      <TableHead className="w-44">Joint of Concern</TableHead>
-                      <TableHead className="text-right w-32 pr-6">Action</TableHead>
+                      <TableHead className="w-40">Joint of Concern</TableHead>
+                      <TableHead className="text-right w-28 pr-6">Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredGuideLeads.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-16 text-slate-400">
+                        <TableCell colSpan={6} className="text-center py-16 text-slate-400">
                           <div className="max-w-xs mx-auto space-y-2 text-center">
                             <Download className="w-8 h-8 mx-auto text-slate-300 stroke-[1.5]" />
                             <p className="font-medium text-slate-600">No guide downloads found</p>
                             <p className="text-xs text-slate-400">
-                              {guideSearch ? "No downloads matched your search criteria." : "When patients download the free guide on your website, their contact details and a delete button will appear here."}
+                              {guideSearch ? "No downloads matched your search criteria." : "When patients download the free guide on your website, their contact details and delete button will appear here."}
                             </p>
                           </div>
                         </TableCell>
@@ -1128,10 +1204,33 @@ export default function AdminDashboard() {
                     ) : (
                       filteredGuideLeads.map((g) => (
                         <TableRow key={g.id} className="hover:bg-slate-50/80 transition-colors">
+                          <TableCell className="text-left pl-4">
+                            <Button 
+                              variant="destructive" 
+                              size="sm" 
+                              className="bg-red-600 hover:bg-red-700 text-white rounded-xl h-8 px-3 font-semibold text-xs inline-flex items-center gap-1.5 shadow-xs transition-colors shrink-0 cursor-pointer"
+                              onClick={() => setDeleteConfirm({ type: "guide_downloads", id: g.id })}
+                              title="Delete this guide download"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Delete</span>
+                            </Button>
+                          </TableCell>
                           <TableCell className="text-xs text-slate-600 whitespace-nowrap font-medium">
                             {formatSafeDate(g.createdAt)}
                           </TableCell>
-                          <TableCell className="font-bold text-slate-900">{g.name}</TableCell>
+                          <TableCell className="font-bold text-slate-900">
+                            <div className="flex items-center gap-2">
+                              <span>{g.name}</span>
+                              <button 
+                                onClick={() => setDeleteConfirm({ type: "guide_downloads", id: g.id })}
+                                className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 cursor-pointer"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </TableCell>
                           <TableCell className="text-sm">
                             <div className="flex flex-col">
                               <span className="font-medium text-slate-800">{g.email}</span>
@@ -1183,22 +1282,79 @@ export default function AdminDashboard() {
                   High Intent Candidates
                 </Badge>
               </CardHeader>
-              <div className="overflow-x-auto">
+
+              {/* High-visibility Quick Delete Cards for Quiz Leads */}
+              {filteredQuizLeads.length > 0 && (
+                <div className="p-4 sm:p-5 bg-teal-50/40 border-b border-slate-200 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                      <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                      Quick Manage / Delete Quiz Leads
+                    </span>
+                    <span className="text-xs text-slate-500">Click red Delete button to remove immediately</span>
+                  </div>
+                  <div className="grid grid-cols-1 gap-2.5">
+                    {filteredQuizLeads.map((q) => (
+                      <div 
+                        key={`quick-quiz-${q.id}`} 
+                        className="p-4 bg-white rounded-2xl border-2 border-red-200 hover:border-red-400 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all"
+                      >
+                        <div className="flex items-start sm:items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-xl bg-teal-100 flex items-center justify-center text-teal-700 shrink-0 mt-0.5 sm:mt-0">
+                            <Sparkles className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-slate-900 text-base">{q.name}</span>
+                              <Badge className="bg-teal-50 text-teal-800 border-teal-200 font-medium">
+                                {q.joint}
+                              </Badge>
+                              <span className="text-xs text-slate-500 font-mono">
+                                {formatSafeDate(q.createdAt)}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-slate-600 mt-1 flex-wrap">
+                              <span className="font-medium text-slate-800">{q.email}</span>
+                              {q.phone && (
+                                <span className="text-slate-700 font-mono bg-slate-100 px-2 py-0.5 rounded">
+                                  {q.phone}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <Button 
+                          variant="destructive" 
+                          size="sm" 
+                          className="bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl h-9 px-4 text-xs inline-flex items-center gap-2 shadow-xs cursor-pointer shrink-0 w-full sm:w-auto justify-center"
+                          onClick={() => setDeleteConfirm({ type: "pain_quiz_results", id: q.id })}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span>Delete Quiz Lead</span>
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="overflow-x-auto w-full">
                 <Table className="min-w-[800px]">
                   <TableHeader className="bg-slate-50">
                     <TableRow>
+                      <TableHead className="w-28 text-left font-bold text-red-600 pl-4">Delete</TableHead>
                       <TableHead className="w-44">Date</TableHead>
-                      <TableHead className="w-48">Patient</TableHead>
+                      <TableHead className="w-44">Patient</TableHead>
                       <TableHead className="w-60">Contact</TableHead>
-                      <TableHead className="w-40">Joint / Injury</TableHead>
+                      <TableHead className="w-36">Joint / Injury</TableHead>
                       <TableHead>Recommendations</TableHead>
-                      <TableHead className="text-right w-32 pr-6">Action</TableHead>
+                      <TableHead className="text-right w-28 pr-6">Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredQuizLeads.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center py-16 text-slate-400">
+                        <TableCell colSpan={7} className="text-center py-16 text-slate-400">
                           <div className="max-w-xs mx-auto space-y-2 text-center">
                             <Sparkles className="w-8 h-8 mx-auto text-slate-300 stroke-[1.5]" />
                             <p className="font-medium text-slate-600">No quiz submissions found</p>
@@ -1211,10 +1367,33 @@ export default function AdminDashboard() {
                     ) : (
                       filteredQuizLeads.map((q) => (
                         <TableRow key={q.id} className="hover:bg-slate-50/80 transition-colors">
+                          <TableCell className="text-left pl-4">
+                            <Button 
+                              variant="destructive" 
+                              size="sm" 
+                              className="bg-red-600 hover:bg-red-700 text-white rounded-xl h-8 px-3 font-semibold text-xs inline-flex items-center gap-1.5 shadow-xs transition-colors shrink-0 cursor-pointer"
+                              onClick={() => setDeleteConfirm({ type: "pain_quiz_results", id: q.id })}
+                              title="Delete quiz submission"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              <span>Delete</span>
+                            </Button>
+                          </TableCell>
                           <TableCell className="text-xs text-slate-600 whitespace-nowrap font-medium">
                             {formatSafeDate(q.createdAt)}
                           </TableCell>
-                          <TableCell className="font-bold text-slate-900">{q.name}</TableCell>
+                          <TableCell className="font-bold text-slate-900">
+                            <div className="flex items-center gap-2">
+                              <span>{q.name}</span>
+                              <button 
+                                onClick={() => setDeleteConfirm({ type: "pain_quiz_results", id: q.id })}
+                                className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 cursor-pointer"
+                                title="Delete"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </TableCell>
                           <TableCell className="text-sm">
                             <div className="flex flex-col">
                               <span className="font-medium text-slate-800">{q.email}</span>
@@ -1255,144 +1434,262 @@ export default function AdminDashboard() {
           {/* Leads Tab: Pain Quiz and Guide Downloads */}
           <TabsContent value="leads">
             <div className="space-y-6">
-              {/* Pain Quiz Submissions */}
-              <Card className="rounded-2xl border-slate-200 overflow-hidden">
-                <CardHeader className="bg-slate-50 border-b border-slate-200 py-4">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-bold flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-teal-600" />
-                      Pain Quiz Assessments ({quizLeads.length})
-                    </CardTitle>
-                    <Badge variant="outline" className="border-teal-200 bg-teal-50 text-teal-700">
-                      High Intent
-                    </Badge>
+              {/* Free Guide Downloads */}
+              <Card className="rounded-2xl border-slate-200 overflow-hidden shadow-xs">
+                <CardHeader className="bg-slate-50 border-b border-slate-200 py-4 px-6 flex flex-row items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-sky-100 flex items-center justify-center text-sky-600 shadow-xs">
+                      <Download className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base font-bold flex items-center gap-2">
+                        Free Guide Downloads ({guideLeads.length})
+                      </CardTitle>
+                      <p className="text-xs text-slate-500">Patients who requested regenerative medicine PDF guides</p>
+                    </div>
                   </div>
+                  <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-700 font-semibold px-2.5 py-0.5">
+                    Regenerative 101
+                  </Badge>
                 </CardHeader>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Patient</TableHead>
-                      <TableHead>Contact</TableHead>
-                      <TableHead>Joint / Injury</TableHead>
-                      <TableHead>Biologic Recommendations</TableHead>
-                      <TableHead className="text-right pr-6">Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {quizLeads.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="text-center py-12 text-slate-400">
-                          No quiz submissions recorded yet
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      quizLeads.map((q) => (
-                        <TableRow key={q.id}>
-                          <TableCell className="text-xs text-slate-500 whitespace-nowrap">
-                            {formatSafeDate(q.createdAt)}
-                          </TableCell>
-                          <TableCell className="font-bold text-slate-900">{q.name}</TableCell>
-                          <TableCell className="text-sm">
-                            <div className="flex flex-col">
-                              <span>{q.email}</span>
-                              <span className="text-slate-500 text-xs font-mono">{q.phone}</span>
+
+                {/* High-visibility Quick Delete Cards for Guide Leads */}
+                {guideLeads.length > 0 && (
+                  <div className="p-4 sm:p-5 bg-sky-50/40 border-b border-slate-200 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                        <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                        Quick Manage / Delete Guide Downloads
+                      </span>
+                      <span className="text-xs text-slate-500">Click red Delete button to remove immediately</span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2.5">
+                      {guideLeads.map((g) => (
+                        <div 
+                          key={`quick-lead-guide-${g.id}`} 
+                          className="p-4 bg-white rounded-2xl border-2 border-red-200 hover:border-red-400 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition-all"
+                        >
+                          <div className="flex items-start sm:items-center gap-3 min-w-0">
+                            <div className="w-10 h-10 rounded-xl bg-sky-100 flex items-center justify-center text-sky-600 shrink-0 mt-0.5 sm:mt-0">
+                              <Download className="w-5 h-5" />
                             </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className="bg-teal-50 text-teal-800 border-teal-200">
-                              {q.joint}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-xs text-slate-600">
-                            {Array.isArray(q.recommendations) 
-                              ? q.recommendations.map((r: any) => r.title || r).join(", ")
-                              : "Wharton's Jelly, Exosomes, PRP"}
-                          </TableCell>
-                          <TableCell className="text-right pr-6">
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 hover:border-red-300 rounded-xl h-8 px-3 font-semibold text-xs inline-flex items-center gap-1.5 shadow-xs transition-colors shrink-0 cursor-pointer"
-                              onClick={() => setDeleteConfirm({ type: "pain_quiz_results", id: q.id })}
-                              title="Delete quiz submission"
-                            >
-                              <Trash2 className="w-3.5 h-3.5 text-red-600" />
-                              <span>Delete</span>
-                            </Button>
+                            <div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-bold text-slate-900 text-base">{g.name}</span>
+                                <Badge variant="outline" className="border-sky-300 bg-sky-50 text-sky-800 font-semibold px-2 py-0.5 text-xs">
+                                  {g.jointConcern || "General Orthopedic"}
+                                </Badge>
+                                <span className="text-xs text-slate-500 font-mono">
+                                  {formatSafeDate(g.createdAt)}
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-3 text-xs text-slate-600 mt-1 flex-wrap">
+                                <span className="font-medium text-slate-800">{g.email}</span>
+                                {g.phone && (
+                                  <span className="text-slate-700 font-mono bg-slate-100 px-2 py-0.5 rounded">
+                                    {g.phone}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <Button 
+                            variant="destructive" 
+                            size="sm" 
+                            className="bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl h-9 px-4 text-xs inline-flex items-center gap-2 shadow-xs cursor-pointer shrink-0 w-full sm:w-auto justify-center"
+                            onClick={() => setDeleteConfirm({ type: "guide_downloads", id: g.id })}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            <span>Delete Lead</span>
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="overflow-x-auto w-full">
+                  <Table className="min-w-[700px]">
+                    <TableHeader className="bg-slate-50">
+                      <TableRow>
+                        <TableHead className="w-28 text-left font-bold text-red-600 pl-4">Delete</TableHead>
+                        <TableHead className="w-44">Date</TableHead>
+                        <TableHead className="w-44">Name</TableHead>
+                        <TableHead className="w-60">Email & Phone</TableHead>
+                        <TableHead className="w-40">Joint of Concern</TableHead>
+                        <TableHead className="text-right w-28 pr-6">Action</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {guideLeads.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-12 text-slate-400">
+                            No guide downloads recorded yet
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                      ) : (
+                        guideLeads.map((g) => (
+                          <TableRow key={g.id} className="hover:bg-slate-50/80 transition-colors">
+                            <TableCell className="text-left pl-4">
+                              <Button 
+                                variant="destructive" 
+                                size="sm" 
+                                className="bg-red-600 hover:bg-red-700 text-white rounded-xl h-8 px-3 font-semibold text-xs inline-flex items-center gap-1.5 shadow-xs transition-colors shrink-0 cursor-pointer"
+                                onClick={() => setDeleteConfirm({ type: "guide_downloads", id: g.id })}
+                                title="Delete this guide download"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Delete</span>
+                              </Button>
+                            </TableCell>
+                            <TableCell className="text-xs text-slate-500 whitespace-nowrap">
+                              {formatSafeDate(g.createdAt)}
+                            </TableCell>
+                            <TableCell className="font-bold text-slate-900">
+                              <div className="flex items-center gap-2">
+                                <span>{g.name}</span>
+                                <button 
+                                  onClick={() => setDeleteConfirm({ type: "guide_downloads", id: g.id })}
+                                  className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 cursor-pointer"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              <div className="flex flex-col">
+                                <span>{g.email}</span>
+                                <span className="text-slate-500 text-xs font-mono">{g.phone}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="border-slate-200 text-slate-700">
+                                {g.jointConcern || "General Orthopedic"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right pr-6">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 hover:border-red-300 rounded-xl h-8 px-3 font-semibold text-xs inline-flex items-center gap-1.5 shadow-xs transition-colors shrink-0 cursor-pointer"
+                                onClick={() => setDeleteConfirm({ type: "guide_downloads", id: g.id })}
+                                title="Delete guide download"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                                <span>Delete</span>
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </Card>
 
-              {/* Free Guide Downloads */}
-              <Card className="rounded-2xl border-slate-200 overflow-hidden">
-                <CardHeader className="bg-slate-50 border-b border-slate-200 py-4">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-bold flex items-center gap-2">
-                      <Download className="w-4 h-4 text-sky-600" />
-                      Free Guide Downloads ({guideLeads.length})
-                    </CardTitle>
-                    <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-700">
-                      Regenerative 101
-                    </Badge>
+              {/* Pain Quiz Submissions */}
+              <Card className="rounded-2xl border-slate-200 overflow-hidden shadow-xs">
+                <CardHeader className="bg-slate-50 border-b border-slate-200 py-4 px-6 flex flex-row items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-teal-100 flex items-center justify-center text-teal-700 shadow-xs">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base font-bold flex items-center gap-2">
+                        Pain Quiz Assessments ({quizLeads.length})
+                      </CardTitle>
+                      <p className="text-xs text-slate-500">Interactive candidacy evaluation results</p>
+                    </div>
                   </div>
+                  <Badge variant="outline" className="border-teal-200 bg-teal-50 text-teal-700 font-semibold px-2.5 py-0.5">
+                    High Intent
+                  </Badge>
                 </CardHeader>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email & Phone</TableHead>
-                      <TableHead>Joint of Concern</TableHead>
-                      <TableHead className="text-right pr-6">Action</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {guideLeads.length === 0 ? (
+                <div className="overflow-x-auto w-full">
+                  <Table className="min-w-[800px]">
+                    <TableHeader className="bg-slate-50">
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-12 text-slate-400">
-                          No guide downloads recorded yet
-                        </TableCell>
+                        <TableHead className="w-28 text-left font-bold text-red-600 pl-4">Delete</TableHead>
+                        <TableHead className="w-44">Date</TableHead>
+                        <TableHead className="w-44">Patient</TableHead>
+                        <TableHead className="w-60">Contact</TableHead>
+                        <TableHead className="w-36">Joint / Injury</TableHead>
+                        <TableHead>Biologic Recommendations</TableHead>
+                        <TableHead className="text-right w-28 pr-6">Action</TableHead>
                       </TableRow>
-                    ) : (
-                      guideLeads.map((g) => (
-                        <TableRow key={g.id}>
-                          <TableCell className="text-xs text-slate-500 whitespace-nowrap">
-                            {formatSafeDate(g.createdAt)}
-                          </TableCell>
-                          <TableCell className="font-bold text-slate-900">{g.name}</TableCell>
-                          <TableCell className="text-sm">
-                            <div className="flex flex-col">
-                              <span>{g.email}</span>
-                              <span className="text-slate-500 text-xs font-mono">{g.phone}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="border-slate-200 text-slate-700">
-                              {g.jointConcern || "General Orthopedic"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right pr-6">
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
-                              className="border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 hover:border-red-300 rounded-xl h-8 px-3 font-semibold text-xs inline-flex items-center gap-1.5 shadow-xs transition-colors shrink-0 cursor-pointer"
-                              onClick={() => setDeleteConfirm({ type: "guide_downloads", id: g.id })}
-                              title="Delete guide download"
-                            >
-                              <Trash2 className="w-3.5 h-3.5 text-red-600" />
-                              <span>Delete</span>
-                            </Button>
+                    </TableHeader>
+                    <TableBody>
+                      {quizLeads.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center py-12 text-slate-400">
+                            No quiz submissions recorded yet
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                      ) : (
+                        quizLeads.map((q) => (
+                          <TableRow key={q.id} className="hover:bg-slate-50/80 transition-colors">
+                            <TableCell className="text-left pl-4">
+                              <Button 
+                                variant="destructive" 
+                                size="sm" 
+                                className="bg-red-600 hover:bg-red-700 text-white rounded-xl h-8 px-3 font-semibold text-xs inline-flex items-center gap-1.5 shadow-xs transition-colors shrink-0 cursor-pointer"
+                                onClick={() => setDeleteConfirm({ type: "pain_quiz_results", id: q.id })}
+                                title="Delete quiz submission"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Delete</span>
+                              </Button>
+                            </TableCell>
+                            <TableCell className="text-xs text-slate-500 whitespace-nowrap">
+                              {formatSafeDate(q.createdAt)}
+                            </TableCell>
+                            <TableCell className="font-bold text-slate-900">
+                              <div className="flex items-center gap-2">
+                                <span>{q.name}</span>
+                                <button 
+                                  onClick={() => setDeleteConfirm({ type: "pain_quiz_results", id: q.id })}
+                                  className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 cursor-pointer"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-sm">
+                              <div className="flex flex-col">
+                                <span>{q.email}</span>
+                                <span className="text-slate-500 text-xs font-mono">{q.phone}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge className="bg-teal-50 text-teal-800 border-teal-200">
+                                {q.joint}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-xs text-slate-600">
+                              {Array.isArray(q.recommendations) 
+                                ? q.recommendations.map((r: any) => r.title || r).join(", ")
+                                : "Wharton's Jelly, Exosomes, PRP"}
+                            </TableCell>
+                            <TableCell className="text-right pr-6">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="border-red-200 bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700 hover:border-red-300 rounded-xl h-8 px-3 font-semibold text-xs inline-flex items-center gap-1.5 shadow-xs transition-colors shrink-0 cursor-pointer"
+                                onClick={() => setDeleteConfirm({ type: "pain_quiz_results", id: q.id })}
+                                title="Delete quiz submission"
+                              >
+                                <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                                <span>Delete</span>
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </Card>
             </div>
           </TabsContent>
