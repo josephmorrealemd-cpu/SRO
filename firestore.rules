@@ -99,12 +99,13 @@ service cloud.firestore {
 
     function isValidAnalyticsEvent(data) {
       return data.keys().hasAll(['type', 'page', 'sessionId', 'createdAt']) &&
-        data.keys().hasOnly(['type', 'page', 'element', 'sessionId', 'createdAt']) &&
-        data.type in ['page_view', 'click', 'ai_interaction'] &&
+        data.keys().hasOnly(['type', 'page', 'element', 'sessionId', 'createdAt', 'metadata']) &&
+        data.type in ['page_view', 'click', 'ai_interaction', 'pain_quiz_completed', 'decision_tool_interaction', 'guide_downloaded', 'email_nurture_triggered', 'nurture_email_triggered'] &&
         data.page is string && data.page.size() >= 1 && data.page.size() <= 500 &&
         data.sessionId is string && data.sessionId.size() >= 1 && data.sessionId.size() <= 100 &&
         data.createdAt is timestamp &&
-        (!('element' in data) || data.element == null || (data.element is string && data.element.size() <= 500));
+        (!('element' in data) || data.element == null || (data.element is string && data.element.size() <= 500)) &&
+        (!('metadata' in data) || data.metadata == null || (data.metadata is string && data.metadata.size() <= 2000));
     }
 
     function isValidActiveSession(data) {
@@ -113,6 +114,36 @@ service cloud.firestore {
         data.sessionId is string && data.sessionId.size() >= 1 && data.sessionId.size() <= 100 &&
         data.lastActive is timestamp &&
         data.page is string && data.page.size() >= 1 && data.page.size() <= 500;
+    }
+
+    function isValidPainQuizResult(data) {
+      return data.keys().hasAll(['joint', 'duration', 'recommendation', 'treatment', 'createdAt']) &&
+        data.joint is string && data.joint.size() <= 100 &&
+        data.duration is string && data.duration.size() <= 100 &&
+        data.recommendation is string && data.recommendation.size() <= 200 &&
+        data.treatment is string && data.treatment.size() <= 200 &&
+        data.createdAt is timestamp &&
+        (!('painLevel' in data) || (data.painLevel is string && data.painLevel.size() <= 200)) &&
+        (!('surgeryStatus' in data) || (data.surgeryStatus is string && data.surgeryStatus.size() <= 200)) &&
+        (!('goals' in data) || (data.goals is string && data.goals.size() <= 200)) &&
+        (!('rationale' in data) || (data.rationale is string && data.rationale.size() <= 2000)) &&
+        (!('name' in data) || (data.name is string && data.name.size() <= 100)) &&
+        (!('email' in data) || isValidEmail(data.email)) &&
+        (!('phone' in data) || (data.phone is string && data.phone.size() <= 30)) &&
+        (!('sessionId' in data) || (data.sessionId is string && data.sessionId.size() <= 100)) &&
+        (!('limitations' in data) || (data.limitations is list && data.limitations.size() <= 20)) &&
+        (!('priorTreatments' in data) || (data.priorTreatments is list && data.priorTreatments.size() <= 20));
+    }
+
+    function isValidGuideDownload(data) {
+      return data.keys().hasAll(['name', 'email', 'guideName', 'createdAt']) &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+        isValidEmail(data.email) &&
+        data.guideName is string && data.guideName.size() <= 200 &&
+        data.createdAt is timestamp &&
+        (!('phone' in data) || (data.phone is string && data.phone.size() <= 30)) &&
+        (!('jointConcern' in data) || (data.jointConcern is string && data.jointConcern.size() <= 100)) &&
+        (!('sessionId' in data) || (data.sessionId is string && data.sessionId.size() <= 100));
     }
 
     // ===============================================================
@@ -161,6 +192,18 @@ service cloud.firestore {
 
     match /calls/{callId} {
       allow read, write: if isAdmin();
+    }
+
+    match /pain_quiz_results/{resultId} {
+      allow read: if isAdmin();
+      allow create: if isValidPainQuizResult(request.resource.data);
+      allow update, delete: if isAdmin();
+    }
+
+    match /guide_downloads/{downloadId} {
+      allow read: if isAdmin();
+      allow create: if isValidGuideDownload(request.resource.data);
+      allow update, delete: if isAdmin();
     }
 
     match /test/{docId} {

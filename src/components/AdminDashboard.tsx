@@ -96,7 +96,7 @@ interface Booking {
   status: "pending" | "confirmed" | "cancelled";
   reportName?: string;
   reportUrl?: string;
-  createdAt: Timestamp;
+  createdAt: any;
 }
 
 interface ContactMessage {
@@ -105,7 +105,42 @@ interface ContactMessage {
   email: string;
   phone?: string;
   message: string;
-  createdAt: Timestamp;
+  source?: string;
+  direction?: string;
+  smsSid?: string;
+  createdAt: any;
+}
+
+interface QuizLead {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  joint: string;
+  recommendations?: any;
+  createdAt: any;
+}
+
+interface GuideLead {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  jointConcern: string;
+  createdAt: any;
+}
+
+interface CallLogItem {
+  id: string;
+  callSid: string;
+  callerPhone: string;
+  callerName: string;
+  status: string;
+  voicemailUrl?: string;
+  voicemailDuration?: number;
+  transcript?: any[];
+  aiSummary?: string;
+  createdAt: any;
 }
 
 interface AnalyticsEvent {
@@ -113,27 +148,48 @@ interface AnalyticsEvent {
   type: string;
   page: string;
   sessionId: string;
-  createdAt: Timestamp;
+  createdAt: any;
 }
 
 interface ActiveSession {
   id: string;
   sessionId: string;
-  lastActive: Timestamp;
+  lastActive: any;
   page: string;
 }
+
+export const formatSafeDate = (val: any): string => {
+  if (!val) return "Recent";
+  try {
+    if (val && typeof val.toDate === "function") {
+      return val.toDate().toLocaleString();
+    }
+    if (val && val.seconds) {
+      return new Date(val.seconds * 1000).toLocaleString();
+    }
+    const d = new Date(val);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleString();
+    }
+  } catch (e) {}
+  return "Recent";
+};
 
 export default function AdminDashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [messages, setMessages] = useState<ContactMessage[]>([]);
+  const [quizLeads, setQuizLeads] = useState<QuizLead[]>([]);
+  const [guideLeads, setGuideLeads] = useState<GuideLead[]>([]);
+  const [callLogs, setCallLogs] = useState<CallLogItem[]>([]);
   const [events, setEvents] = useState<AnalyticsEvent[]>([]);
   const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [bookingSearch, setBookingSearch] = useState("");
   const [messageSearch, setMessageSearch] = useState("");
-  const [activeTab, setActiveTab] = useState("bookings");
+  const [activeTab, setActiveTab] = useState("messages");
   const [selectedMessage, setSelectedMessage] = useState<ContactMessage | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: string, id: string } | null>(null);
   
@@ -163,7 +219,7 @@ export default function AdminDashboard() {
             </div>
           </div>
           <div style="margin-top: 30px; padding: 20px; background: #f8fafc; border-radius: 10px;">
-            <p><strong>Submitted On:</strong> ${(data as Booking).createdAt?.toDate().toLocaleString()}</p>
+            <p><strong>Submitted On:</strong> ${formatSafeDate((data as Booking).createdAt)}</p>
             <p><strong>File Attached:</strong> ${(data as Booking).reportName || 'None'}</p>
           </div>
           <div style="margin-top: 50px; text-align: center; color: #94a3b8; font-size: 12px;">
@@ -178,7 +234,8 @@ export default function AdminDashboard() {
             <p><strong>Sender:</strong> ${(data as ContactMessage).name}</p>
             <p><strong>Email:</strong> ${(data as ContactMessage).email}</p>
             <p><strong>Phone:</strong> ${(data as ContactMessage).phone || 'N/A'}</p>
-            <p><strong>Sent On:</strong> ${(data as ContactMessage).createdAt?.toDate().toLocaleString()}</p>
+            <p><strong>Channel:</strong> ${(data as ContactMessage).source || 'Web Form'}</p>
+            <p><strong>Sent On:</strong> ${formatSafeDate((data as ContactMessage).createdAt)}</p>
           </div>
           <div style="margin-top: 30px; padding: 20px; background: #f8fafc; border-radius: 10px; min-height: 200px;">
             <p><strong>Message:</strong></p>
@@ -234,25 +291,81 @@ export default function AdminDashboard() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!isAdmin) return;
+  const fetchAllData = async () => {
+    // 1. Fetch from server-side unified inbox endpoint (immune to client-side rule/index hurdles)
+    try {
+      const res = await fetch("/api/admin/inbox");
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.messages)) setMessages(data.messages);
+        if (Array.isArray(data.bookings)) setBookings(data.bookings);
+        if (Array.isArray(data.quizResults)) setQuizLeads(data.quizResults);
+        if (Array.isArray(data.guideDownloads)) setGuideLeads(data.guideDownloads);
+        if (Array.isArray(data.calls)) setCallLogs(data.calls);
+      }
+    } catch (apiErr) {
+      console.warn("Inbox API fetch error, checking Firestore directly:", apiErr);
+    }
 
-    const fetchAllData = async () => {
+    // 2. Client-side Firestore collection fetching with independent safety blocks
+    try {
+      const { getDocs, collection, doc, getDoc } = await import("firebase/firestore");
+      
       try {
-        const { getDocs, query, collection, orderBy, doc, getDoc } = await import("firebase/firestore");
-        
-        const bSnapshot = await getDocs(query(collection(db, "bookings"), orderBy("createdAt", "desc")));
-        setBookings(bSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Booking)));
+        const mSnapshot = await getDocs(collection(db, "contact_messages"));
+        const mList = mSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as ContactMessage));
+        mList.sort((a: any, b: any) => {
+          const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : new Date(a.createdAt || 0).getTime();
+          const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt || 0).getTime();
+          return timeB - timeA;
+        });
+        if (mList.length > 0) setMessages(mList);
+      } catch (e) {
+        console.error("Messages fetch error:", e);
+      }
 
-        const mSnapshot = await getDocs(query(collection(db, "contact_messages"), orderBy("createdAt", "desc")));
-        setMessages(mSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ContactMessage)));
+      try {
+        const bSnapshot = await getDocs(collection(db, "bookings"));
+        const bList = bSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as Booking));
+        bList.sort((a: any, b: any) => {
+          const timeA = a.createdAt?.seconds ? a.createdAt.seconds * 1000 : new Date(a.createdAt || 0).getTime();
+          const timeB = b.createdAt?.seconds ? b.createdAt.seconds * 1000 : new Date(b.createdAt || 0).getTime();
+          return timeB - timeA;
+        });
+        if (bList.length > 0) setBookings(bList);
+      } catch (e) {
+        console.error("Bookings fetch error:", e);
+      }
 
-        const eSnapshot = await getDocs(query(collection(db, "analytics_events"), orderBy("createdAt", "desc")));
-        setEvents(eSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AnalyticsEvent)));
+      try {
+        const qSnapshot = await getDocs(collection(db, "pain_quiz_results"));
+        const qList = qSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as QuizLead));
+        if (qList.length > 0) setQuizLeads(qList);
+      } catch (e) {}
 
-        const sSnapshot = await getDocs(query(collection(db, "active_sessions"), orderBy("lastActive", "desc")));
-        setActiveSessions(sSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as ActiveSession)));
+      try {
+        const gSnapshot = await getDocs(collection(db, "guide_downloads"));
+        const gList = gSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as GuideLead));
+        if (gList.length > 0) setGuideLeads(gList);
+      } catch (e) {}
 
+      try {
+        const cSnapshot = await getDocs(collection(db, "calls"));
+        const cList = cSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as CallLogItem));
+        if (cList.length > 0) setCallLogs(cList);
+      } catch (e) {}
+
+      try {
+        const eSnapshot = await getDocs(collection(db, "analytics_events"));
+        setEvents(eSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as AnalyticsEvent)));
+      } catch (e) {}
+
+      try {
+        const sSnapshot = await getDocs(collection(db, "active_sessions"));
+        setActiveSessions(sSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as ActiveSession)));
+      } catch (e) {}
+
+      try {
         const hSnapshot = await getDoc(doc(db, "app_state", "hologram"));
         if (hSnapshot.exists()) {
           const data = hSnapshot.data();
@@ -262,16 +375,45 @@ export default function AdminDashboard() {
             lastAttempt: data.lastAttemptAt
           });
         }
-      } catch (error) {
-        console.error("Admin data fetch error:", error);
-      }
-    };
+      } catch (e) {}
+    } catch (error) {
+      console.error("Admin data fetch error:", error);
+    }
+  };
+
+  useEffect(() => {
+    if (!isAdmin) return;
 
     fetchAllData();
-    // Refresh every 30 seconds instead of using persistent snapshots to avoid assertion crashes
-    const interval = setInterval(fetchAllData, 30000);
+    // Auto-refresh every 20 seconds
+    const interval = setInterval(fetchAllData, 20000);
     return () => clearInterval(interval);
   }, [isAdmin]);
+
+  const handleSyncCommunications = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await fetch("/api/twilio/sync", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Synchronized Communications", {
+          description: data.message || `Checked Twilio and updated all messages and recordings.`
+        });
+      } else {
+        toast.info("Sync Status", {
+          description: data.message || "Communications synced."
+        });
+      }
+      await fetchAllData();
+    } catch (err: any) {
+      console.error("Sync error:", err);
+      toast.error("Failed to sync communications", {
+        description: err.message
+      });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const handleLogin = async () => {
     try {
@@ -446,7 +588,17 @@ export default function AdminDashboard() {
               </Badge>
             )}
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 md:gap-4">
+            <Button 
+              variant="default" 
+              size="sm" 
+              disabled={isSyncing}
+              className="rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-semibold flex items-center gap-2 text-xs md:text-sm"
+              onClick={handleSyncCommunications}
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />
+              {isSyncing ? "Syncing..." : "Sync Messages"}
+            </Button>
             <Button variant="ghost" size="sm" className="rounded-lg text-slate-600 hidden md:flex" onClick={() => window.location.href = "/"}>
               <ExternalLink className="w-4 h-4 mr-2" />
               View Website
@@ -465,14 +617,14 @@ export default function AdminDashboard() {
       </header>
 
       <main className="container mx-auto px-4 py-8 space-y-8">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card className="rounded-2xl border-slate-200">
             <CardContent className="p-6 flex items-center gap-4">
               <div className="w-12 h-12 bg-teal-50 rounded-xl flex items-center justify-center">
                 <Calendar className="w-6 h-6 text-teal-600" />
               </div>
               <div>
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Total Bookings</p>
+                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Bookings</p>
                 <p className="text-2xl font-bold text-slate-900">{bookings.length}</p>
               </div>
             </CardContent>
@@ -483,8 +635,19 @@ export default function AdminDashboard() {
                 <MessageSquare className="w-6 h-6 text-sky-600" />
               </div>
               <div>
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Total Messages</p>
+                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Messages & SMS</p>
                 <p className="text-2xl font-bold text-slate-900">{messages.length}</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="rounded-2xl border-slate-200">
+            <CardContent className="p-6 flex items-center gap-4">
+              <div className="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center">
+                <FileText className="w-6 h-6 text-amber-600" />
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Quiz & Guides</p>
+                <p className="text-2xl font-bold text-slate-900">{quizLeads.length + guideLeads.length}</p>
               </div>
             </CardContent>
           </Card>
@@ -494,9 +657,14 @@ export default function AdminDashboard() {
                 <Users className="w-6 h-6 text-indigo-600" />
               </div>
               <div>
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Unique Leads</p>
+                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Total Leads</p>
                 <p className="text-2xl font-bold text-slate-900">
-                  {new Set([...bookings.map(b => b.email), ...messages.map(m => m.email)]).size}
+                  {new Set([
+                    ...bookings.map(b => b.email), 
+                    ...messages.map(m => m.email),
+                    ...quizLeads.map(q => q.email),
+                    ...guideLeads.map(g => g.email)
+                  ].filter(Boolean)).size}
                 </p>
               </div>
             </CardContent>
@@ -505,17 +673,23 @@ export default function AdminDashboard() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <TabsList className="bg-white border border-slate-200 p-1 rounded-xl h-12">
-              <TabsTrigger value="bookings" className="rounded-lg px-6 data-[state=active]:bg-slate-900 data-[state=active]:text-white">
-                Bookings
+            <TabsList className="bg-white border border-slate-200 p-1 rounded-xl h-auto flex flex-wrap gap-1">
+              <TabsTrigger value="messages" className="rounded-lg px-4 py-2 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+                Messages ({messages.length})
               </TabsTrigger>
-              <TabsTrigger value="messages" className="rounded-lg px-6 data-[state=active]:bg-slate-900 data-[state=active]:text-white">
-                Messages
+              <TabsTrigger value="bookings" className="rounded-lg px-4 py-2 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+                Bookings ({bookings.length})
               </TabsTrigger>
-              <TabsTrigger value="analytics" className="rounded-lg px-6 data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+              <TabsTrigger value="leads" className="rounded-lg px-4 py-2 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+                Quiz & Guides ({quizLeads.length + guideLeads.length})
+              </TabsTrigger>
+              <TabsTrigger value="calls" className="rounded-lg px-4 py-2 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+                Calls ({callLogs.length})
+              </TabsTrigger>
+              <TabsTrigger value="analytics" className="rounded-lg px-4 py-2 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">
                 Analytics
               </TabsTrigger>
-              <TabsTrigger value="hologram" className="rounded-lg px-6 data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+              <TabsTrigger value="hologram" className="rounded-lg px-4 py-2 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">
                 Hologram
               </TabsTrigger>
             </TabsList>
@@ -557,7 +731,7 @@ export default function AdminDashboard() {
                     filteredBookings.map((b) => (
                       <TableRow key={b.id}>
                         <TableCell className="text-xs text-slate-500">
-                          {b.createdAt?.toDate().toLocaleDateString()}
+                          {formatSafeDate(b.createdAt)}
                         </TableCell>
                         <TableCell className="font-bold text-slate-900">{b.name}</TableCell>
                         <TableCell className="text-sm">
@@ -643,28 +817,61 @@ export default function AdminDashboard() {
                 <TableHeader className="bg-slate-50">
                   <TableRow>
                     <TableHead>Date Sent</TableHead>
-                    <TableHead>Sender</TableHead>
+                    <TableHead>Sender & Channel</TableHead>
                     <TableHead>Contact</TableHead>
-                    <TableHead>Message</TableHead>
+                    <TableHead>Message Preview</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredMessages.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-20 text-slate-400">No messages found</TableCell>
+                      <TableCell colSpan={5} className="text-center py-20 text-slate-400">
+                        <div className="flex flex-col items-center gap-3">
+                          <MessageSquare className="w-8 h-8 text-slate-300" />
+                          <p className="text-sm font-medium">No messages found</p>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={handleSyncCommunications}
+                            disabled={isSyncing}
+                            className="rounded-xl border-teal-200 text-teal-700 hover:bg-teal-50"
+                          >
+                            <RefreshCw className={`w-3.5 h-3.5 mr-2 ${isSyncing ? "animate-spin" : ""}`} />
+                            Sync Messages from Twilio
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ) : (
                     filteredMessages.map((m) => (
                       <TableRow key={m.id}>
-                        <TableCell className="text-xs text-slate-500">
-                          {m.createdAt?.toDate().toLocaleDateString()}
+                        <TableCell className="text-xs text-slate-500 whitespace-nowrap">
+                          {formatSafeDate(m.createdAt)}
                         </TableCell>
-                        <TableCell className="font-bold text-slate-900">{m.name}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            <span className="font-bold text-slate-900">{m.name}</span>
+                            <div className="flex items-center gap-1.5">
+                              {m.source === "sms" ? (
+                                <Badge variant="outline" className="rounded-md border-blue-200 bg-blue-50 text-blue-700 text-[10px] px-1.5 py-0 font-bold uppercase">
+                                  SMS
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="rounded-md border-teal-200 bg-teal-50 text-teal-700 text-[10px] px-1.5 py-0 font-bold uppercase">
+                                  Web Form
+                                </Badge>
+                              )}
+                              {m.direction && (
+                                <span className="text-[10px] text-slate-400 lowercase">{m.direction}</span>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
                         <TableCell className="text-sm">
                           <div className="flex flex-col">
                             <span>{m.email}</span>
-                            {m.phone && <span className="text-slate-500 text-xs">{m.phone}</span>}
+                            {m.phone && <span className="text-slate-500 text-xs font-mono">{m.phone}</span>}
                           </div>
                         </TableCell>
                         <TableCell className="max-w-md">
@@ -686,6 +893,7 @@ export default function AdminDashboard() {
                               size="icon" 
                               className="text-slate-500 hover:text-slate-600 hover:bg-slate-100 rounded-lg"
                               onClick={() => setSelectedMessage(m)}
+                              title="View full message"
                             >
                               <ExternalLink className="w-4 h-4" />
                             </Button>
@@ -694,10 +902,211 @@ export default function AdminDashboard() {
                               size="icon" 
                               className="text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
                               onClick={() => setDeleteConfirm({ type: "contact_messages", id: m.id })}
+                              title="Delete message"
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
                           </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </Card>
+          </TabsContent>
+
+          {/* Leads Tab: Pain Quiz and Guide Downloads */}
+          <TabsContent value="leads">
+            <div className="space-y-6">
+              {/* Pain Quiz Submissions */}
+              <Card className="rounded-2xl border-slate-200 overflow-hidden">
+                <CardHeader className="bg-slate-50 border-b border-slate-200 py-4">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base font-bold flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-teal-600" />
+                      Pain Quiz Assessments ({quizLeads.length})
+                    </CardTitle>
+                    <Badge variant="outline" className="border-teal-200 bg-teal-50 text-teal-700">
+                      High Intent
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Patient</TableHead>
+                      <TableHead>Contact</TableHead>
+                      <TableHead>Joint / Injury</TableHead>
+                      <TableHead>Biologic Recommendations</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {quizLeads.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center py-12 text-slate-400">
+                          No quiz submissions recorded yet
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      quizLeads.map((q) => (
+                        <TableRow key={q.id}>
+                          <TableCell className="text-xs text-slate-500 whitespace-nowrap">
+                            {formatSafeDate(q.createdAt)}
+                          </TableCell>
+                          <TableCell className="font-bold text-slate-900">{q.name}</TableCell>
+                          <TableCell className="text-sm">
+                            <div className="flex flex-col">
+                              <span>{q.email}</span>
+                              <span className="text-slate-500 text-xs font-mono">{q.phone}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className="bg-teal-50 text-teal-800 border-teal-200">
+                              {q.joint}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs text-slate-600">
+                            {Array.isArray(q.recommendations) 
+                              ? q.recommendations.map((r: any) => r.title || r).join(", ")
+                              : "Wharton's Jelly, Exosomes, PRP"}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </Card>
+
+              {/* Free Guide Downloads */}
+              <Card className="rounded-2xl border-slate-200 overflow-hidden">
+                <CardHeader className="bg-slate-50 border-b border-slate-200 py-4">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base font-bold flex items-center gap-2">
+                      <Download className="w-4 h-4 text-sky-600" />
+                      Free Guide Downloads ({guideLeads.length})
+                    </CardTitle>
+                    <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-700">
+                      Regenerative 101
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email & Phone</TableHead>
+                      <TableHead>Joint of Concern</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {guideLeads.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-12 text-slate-400">
+                          No guide downloads recorded yet
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      guideLeads.map((g) => (
+                        <TableRow key={g.id}>
+                          <TableCell className="text-xs text-slate-500 whitespace-nowrap">
+                            {formatSafeDate(g.createdAt)}
+                          </TableCell>
+                          <TableCell className="font-bold text-slate-900">{g.name}</TableCell>
+                          <TableCell className="text-sm">
+                            <div className="flex flex-col">
+                              <span>{g.email}</span>
+                              <span className="text-slate-500 text-xs font-mono">{g.phone}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="border-slate-200 text-slate-700">
+                              {g.jointConcern || "General Orthopedic"}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </Card>
+            </div>
+          </TabsContent>
+
+          {/* Calls & Voicemails Tab */}
+          <TabsContent value="calls">
+            <Card className="rounded-2xl border-slate-200 overflow-hidden">
+              <CardHeader className="bg-slate-50 border-b border-slate-200 py-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base font-bold flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-teal-600" />
+                    Phone Inquiries & Voicemails ({callLogs.length})
+                  </CardTitle>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="text-xs rounded-xl"
+                    onClick={() => window.location.href = "/admin/phone"}
+                  >
+                    Open Live Phone Console
+                    <ExternalLink className="w-3.5 h-3.5 ml-1.5" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Time</TableHead>
+                    <TableHead>Caller</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Summary / Transcript</TableHead>
+                    <TableHead className="text-right">Recording</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {callLogs.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-20 text-slate-400">
+                        No phone call or voicemail records found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    callLogs.map((c) => (
+                      <TableRow key={c.id}>
+                        <TableCell className="text-xs text-slate-500 whitespace-nowrap">
+                          {formatSafeDate(c.createdAt)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col">
+                            <span className="font-bold text-slate-900">{c.callerName}</span>
+                            <span className="text-xs text-slate-500 font-mono">{c.callerPhone}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={c.status === "completed" ? "bg-slate-100 text-slate-700" : "bg-emerald-50 text-emerald-700"}>
+                            {c.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="max-w-md">
+                          <p className="text-xs text-slate-600 line-clamp-2">
+                            {c.aiSummary || (c.transcript && c.transcript.length > 0 ? c.transcript[c.transcript.length - 1].text : "Call logged")}
+                          </p>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {c.voicemailUrl ? (
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              className="rounded-lg text-xs"
+                              onClick={() => window.open(c.voicemailUrl, '_blank')}
+                            >
+                              Play Audio
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-slate-400">No Audio</span>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))
@@ -1078,7 +1487,7 @@ export default function AdminDashboard() {
                 <DialogTitle className="text-xl font-bold">Message from {selectedMessage?.name}</DialogTitle>
               </div>
               <DialogDescription className="text-slate-500">
-                Sent on {selectedMessage?.createdAt?.toDate().toLocaleString()}
+                Sent on {formatSafeDate(selectedMessage?.createdAt)}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-6 py-4">

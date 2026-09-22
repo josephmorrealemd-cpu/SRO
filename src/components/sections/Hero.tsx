@@ -1,79 +1,94 @@
 import { motion } from "motion/react";
-import { ArrowRight, Activity, ShieldCheck, Zap } from "lucide-react";
+import { ArrowRight, Activity, ShieldCheck, Zap, Sparkles, HelpCircle, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
 import { BookingDialog } from "../ui/BookingDialog";
 
 export default function Hero() {
   return (
-    <section className="relative overflow-hidden bg-slate-50 pt-20 pb-32">
+    <section className="relative overflow-hidden bg-slate-50 pt-16 pb-28 sm:pb-32">
       {/* Abstract background elements */}
       <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-1/4 w-[800px] h-[800px] bg-teal-100/50 rounded-full blur-3xl -z-10" />
       <div className="absolute bottom-0 left-0 translate-y-1/2 -translate-x-1/4 w-[600px] h-[600px] bg-sky-100/50 rounded-full blur-3xl -z-10" />
 
-      <div className="container mx-auto px-4 grid lg:grid-cols-2 gap-16 items-center">
+      <div className="container mx-auto px-4 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
         <motion.div 
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.6 }}
-          className="space-y-8"
+          className="space-y-6 sm:space-y-8"
         >
           <div className="inline-flex flex-wrap items-center gap-2">
-            <div className="px-3 py-1 bg-teal-100 text-teal-700 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              Board-Certified Orthopedic Excellence
+            <div className="px-3 py-1 bg-teal-100 text-teal-800 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-teal-600" />
+              Board-Certified Orthopedic Surgeon
             </div>
-            <div className="px-3 py-1 bg-sky-100 text-sky-700 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5">
-              <Zap className="w-3.5 h-3.5" />
-              Non-Operative Precision
-            </div>
+            <Link 
+              to="/guide/regenerative-medicine-101" 
+              className="px-3 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200/60 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1.5 transition-colors"
+            >
+              <FileText className="w-3.5 h-3.5 text-amber-600" />
+              Free Biologics 101 Guide
+            </Link>
           </div>
           
-          <h1 className="text-5xl lg:text-7xl font-bold text-slate-900 leading-[1.1] tracking-tight">
-            Restore Recovery. <br />
-            <span className="text-slate-400">Reduce Pain.</span> <br />
-            <span className="text-teal-600 italic font-serif">Optimize Performance.</span>
+          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold text-slate-900 leading-[1.1] tracking-tight">
+            Restore Cartilage. <br />
+            <span className="text-slate-400">Avoid Surgery.</span> <br />
+            <span className="text-teal-600 italic font-serif">Regenerate Naturally.</span>
           </h1>
           
-          <div className="space-y-4 max-w-xl">
-            <p className="text-xl font-bold text-slate-900 leading-tight">
-              Advanced regenerative injections and non-operative orthopedic care delivered by board-certified orthopedic surgeons.
+          <div className="space-y-3 max-w-xl">
+            <p className="text-lg sm:text-xl font-bold text-slate-900 leading-snug">
+              Advanced biologic regeneration — Wharton’s Jelly, Exosomes, PRP, and MSK Laser — delivered by a board-certified orthopedic surgeon.
             </p>
-            <p className="text-lg text-slate-600 leading-relaxed">
-              Personalized recovery, metabolic health, and hormone optimization programs designed to help you stay active, strong, and resilient.
+            <p className="text-base sm:text-lg text-slate-600 leading-relaxed">
+              Personalized non-surgical joint restoration, cellular signaling, and image-guided tissue scaffolding designed to eliminate chronic pain and prevent joint replacement.
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-1">
             <BookingDialog 
-              title="Schedule Your Medical Consultation"
-              description="Take the first step toward recovery. Schedule a personalized consultation with our specialized medical team to discuss your treatment goals."
+              title="Schedule Your Orthopedic Consultation"
+              description="Meet with Dr. Joseph Morreale in Westminster, CO to review your imaging and discuss customized biologic options."
               trigger={
-                <button className="bg-teal-600 text-white px-8 py-4 rounded-full font-bold hover:bg-teal-700 transition-all shadow-xl shadow-teal-600/20 flex items-center justify-center gap-2 group">
-                  Schedule Your Medical Consultation
+                <button className="bg-teal-600 text-white px-8 py-4 rounded-full font-bold hover:bg-teal-700 transition-all shadow-xl shadow-teal-600/20 flex items-center justify-center gap-2 group text-sm sm:text-base">
+                  Schedule Consultation
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </button>
               }
             />
-            <button 
-              onClick={() => document.getElementById('programs')?.scrollIntoView({ behavior: 'smooth' })}
-              className="bg-white border border-slate-200 text-slate-700 px-8 py-4 rounded-full font-bold hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+            <Link
+              to="/pain-quiz"
+              className="bg-white border-2 border-teal-600 text-teal-800 px-6 py-4 rounded-full font-bold hover:bg-teal-50 transition-all flex items-center justify-center gap-2 text-sm sm:text-base shadow-xs"
             >
-              Explore Programs
-            </button>
+              <Sparkles className="w-4 h-4 text-teal-600" />
+              Take 2-Min Pain Quiz
+            </Link>
           </div>
 
-          <div className="grid grid-cols-3 gap-8 pt-8 border-t border-slate-200">
+          <div className="flex items-center gap-4 text-xs font-semibold text-slate-600 pt-1">
+            <span>Explore Options:</span>
+            <Link to="/biologics-decision" className="text-teal-700 hover:text-teal-800 hover:underline">
+              Biologics Decision Matrix →
+            </Link>
+            <span>•</span>
+            <Link to="/guide/regenerative-medicine-101" className="text-teal-700 hover:text-teal-800 hover:underline">
+              Free Patient Guide →
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-3 gap-6 pt-6 border-t border-slate-200">
             <div className="space-y-1">
               <div className="text-2xl font-bold text-slate-900">5,000+</div>
               <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider leading-tight">Procedures Performed</div>
             </div>
             <div className="space-y-1">
-              <div className="text-2xl font-bold text-slate-900">15+</div>
-              <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider leading-tight">Years Clinical Experience</div>
+              <div className="text-2xl font-bold text-teal-700">Tier 1</div>
+              <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider leading-tight">Wharton's Jelly & Exosomes</div>
             </div>
             <div className="space-y-1">
-              <div className="text-2xl font-bold text-slate-900">Expert</div>
-              <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider leading-tight">Board-Certified Specialists</div>
+              <div className="text-2xl font-bold text-slate-900">100% MD</div>
+              <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider leading-tight">Board-Certified Surgeon</div>
             </div>
           </div>
         </motion.div>

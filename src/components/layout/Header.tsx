@@ -5,11 +5,11 @@ import { BookingDialog } from "../ui/BookingDialog";
 import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
-  { name: "Programs", href: "/treatments" },
-  { name: "Weight Loss", href: "/treatments?goal=metabolism" },
-  { name: "TRT", href: "/treatments?goal=hormones" },
+  { name: "Treatments", href: "/treatments" },
+  { name: "Pain Quiz", href: "/pain-quiz", highlight: true },
+  { name: "Biologics Tool", href: "/biologics-decision" },
+  { name: "Free Guide", href: "/guide/regenerative-medicine-101" },
   { name: "Anatomy", href: "/anatomy" },
-  { name: "Investment", href: "/investment" },
   { name: "Education", href: "/education" },
 ];
 
@@ -62,10 +62,12 @@ export default function Header() {
               key={link.name}
               to={link.href} 
               className={cn(
-                "px-4 py-2 rounded-full transition-all duration-200 whitespace-nowrap",
+                "px-3.5 py-1.5 rounded-full transition-all duration-200 whitespace-nowrap text-xs lg:text-sm",
                 pathname === link.href 
                   ? "text-teal-700 bg-teal-50 font-bold" 
-                  : "hover:text-teal-600 hover:bg-slate-50"
+                  : link.highlight
+                    ? "bg-teal-600/10 text-teal-800 font-bold border border-teal-300/60 hover:bg-teal-600 hover:text-white"
+                    : "hover:text-teal-600 hover:bg-slate-50"
               )}
             >
               {link.name}

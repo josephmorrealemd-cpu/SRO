@@ -4,9 +4,10 @@ import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import { initializeApp } from "firebase/app";
-import { getFirestore, doc, setDoc, updateDoc, collection, getDocs } from "firebase/firestore";
+import { getFirestore, doc, setDoc, updateDoc, collection, getDocs, addDoc, serverTimestamp } from "firebase/firestore";
 import firebaseConfig from "./firebase-applet-config.json";
 import twilio from "twilio";
+import { sendNurtureEmail, sendAdminNotificationEmail, EMAIL_TEMPLATES, EmailTemplateId } from "./src/server/emailService";
 
 dotenv.config();
 
@@ -20,6 +21,264 @@ async function startServer() {
 
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true }));
+
+  // Email Nurture Sequence API
+  app.get("/api/email/templates", (req, res) => {
+    const list = Object.values(EMAIL_TEMPLATES).map(t => ({
+      id: t.id,
+      title: t.title,
+      subject: t.subject,
+      preheader: t.preheader
+    }));
+    res.json({ templates: list });
+  });
+
+  app.post("/api/email/nurture", async (req, res) => {
+    try {
+      const { templateId, email, name, jointConcern, source } = req.body;
+      if (!email || !templateId) {
+        return res.status(400).json({ error: "Email and templateId are required." });
+      }
+
+      const result = await sendNurtureEmail(templateId as EmailTemplateId, {
+        email,
+        name: name || "Patient",
+        jointConcern,
+        source
+      });
+
+      res.json(result);
+    } catch (err: any) {
+      console.error("Nurture email error:", err);
+      res.status(500).json({ error: err.message || "Failed to dispatch nurture email." });
+    }
+  });
+
+  app.post("/api/email/trigger-sequence", async (req, res) => {
+    try {
+      const { email, name, source, jointConcern } = req.body;
+      if (!email) {
+        return res.status(400).json({ error: "Email is required." });
+      }
+
+      // Step 1: Send Welcome + What to Expect immediately
+      const initialSend = await sendNurtureEmail("welcome_expectations", {
+        email,
+        name: name || "Patient",
+        jointConcern,
+        source
+      });
+
+      console.log(`[Email Sequence Initiated] Source: ${source}, Email: ${email}, Name: ${name}`);
+      res.json({ 
+        success: true, 
+        initialSend, 
+        message: "Nurture sequence scheduled and initial welcome dispatched." 
+      });
+    } catch (err: any) {
+      console.error("Sequence trigger error:", err);
+      res.status(500).json({ error: err.message || "Failed to trigger email sequence." });
+    }
+  });
+
+  // Twilio Incoming SMS Webhook
+  app.post("/api/twilio/sms", async (req, res) => {
+    const from = (req.body.From || "Unknown").trim();
+    const body = (req.body.Body || "").trim();
+    const messageSid = req.body.MessageSid || ("SMS_" + Date.now());
+    const fromCity = req.body.FromCity || "";
+    const fromState = req.body.FromState || "";
+
+    console.log(`[Twilio SMS Webhook] From: ${from} | Body: "${body}" | Sid: ${messageSid}`);
+
+    try {
+      const docRef = doc(db, "contact_messages", messageSid);
+      const cleanPhone = from.replace(/[^0-9]/g, '');
+      const smsRecord = {
+        name: fromCity ? `SMS Patient (${fromCity}, ${fromState})` : `SMS Patient (${from})`,
+        email: cleanPhone ? `${cleanPhone}@sms.patient` : "patient@sms.patient",
+        phone: from,
+        message: body,
+        source: "sms",
+        direction: "inbound",
+        smsSid: messageSid,
+        createdAt: new Date().toISOString()
+      };
+      await setDoc(docRef, smsRecord, { merge: true });
+
+      // Broadcast to active SSE clients if any
+      broadcastCallEvent("sms_received", smsRecord);
+
+      // Dispatch alert email to clinic administrators
+      await sendAdminNotificationEmail({
+        type: "sms",
+        name: `SMS Patient (${from})`,
+        email: cleanPhone ? `${cleanPhone}@sms.patient` : "patient@sms.patient",
+        phone: from,
+        details: body
+      });
+    } catch (err) {
+      console.error("[Twilio SMS Webhook Error]:", err);
+    }
+
+    res.header("Content-Type", "text/xml");
+    res.send(`<?xml version="1.0" encoding="UTF-8"?><Response></Response>`);
+  });
+
+  // Twilio Sync API - Pulls recent SMS messages and voicemails directly from Twilio REST API
+  app.all("/api/twilio/sync", async (req, res) => {
+    const accountSid = (process.env.TWILIO_ACCOUNT_SID || "").trim();
+    const authToken = (process.env.TWILIO_AUTH_TOKEN || "").trim();
+
+    if (!accountSid || !authToken) {
+      return res.json({ 
+        success: false, 
+        message: "Twilio credentials not configured in environment.",
+        syncedMessages: 0,
+        syncedRecordings: 0
+      });
+    }
+
+    try {
+      const client = twilio(accountSid, authToken);
+      console.log("[Twilio Sync] Pulling recent incoming communications from Twilio account...");
+
+      // Fetch last 50 messages from Twilio
+      const twilioMessages = await client.messages.list({ limit: 50 });
+      let syncedMessages = 0;
+
+      for (const msg of twilioMessages) {
+        const docRef = doc(db, "contact_messages", msg.sid);
+        const cleanPhone = (msg.from || "").replace(/[^0-9]/g, '');
+        await setDoc(docRef, {
+          name: msg.direction.includes("inbound") ? `SMS: ${msg.from}` : `Outgoing to ${msg.to}`,
+          email: cleanPhone ? `${cleanPhone}@sms.patient` : "sms@patient.com",
+          phone: msg.from || msg.to,
+          message: msg.body || "",
+          source: "sms",
+          direction: msg.direction,
+          status: msg.status,
+          smsSid: msg.sid,
+          createdAt: msg.dateCreated ? msg.dateCreated.toISOString() : new Date().toISOString()
+        }, { merge: true });
+        syncedMessages++;
+      }
+
+      // Fetch recordings
+      const twilioRecordings = await client.recordings.list({ limit: 20 });
+      let syncedRecordings = 0;
+      for (const rec of twilioRecordings) {
+        const callRef = doc(db, "calls", rec.callSid || rec.sid);
+        const recordingUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Recordings/${rec.sid}.mp3`;
+        await setDoc(callRef, {
+          callSid: rec.callSid || rec.sid,
+          callerPhone: "Twilio Call",
+          callerName: "Voicemail / Audio Recording",
+          status: "completed",
+          voicemailUrl: recordingUrl,
+          voicemailDuration: parseInt(rec.duration || "0"),
+          transcript: [{ speaker: "system", text: `Voicemail recording (${rec.duration}s)`, timestamp: new Date(rec.dateCreated).getTime() }],
+          aiSummary: "Voicemail audio file synced from Twilio account.",
+          aiUrgency: "Medium",
+          aiIntent: "Voicemail",
+          createdAt: rec.dateCreated ? rec.dateCreated.toISOString() : new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+        syncedRecordings++;
+      }
+
+      console.log(`[Twilio Sync] Complete. Synced ${syncedMessages} messages, ${syncedRecordings} voicemails.`);
+      res.json({
+        success: true,
+        syncedMessages,
+        syncedRecordings,
+        message: `Successfully synchronized ${syncedMessages} SMS messages and ${syncedRecordings} recordings from Twilio.`
+      });
+    } catch (err: any) {
+      console.error("[Twilio Sync Error]:", err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Website Contact Form Submission API
+  app.post("/api/contact", async (req, res) => {
+    try {
+      const { name, firstName, lastName, email, phone, message } = req.body;
+      const fullName = name || `${firstName || ''} ${lastName || ''}`.trim() || "Website Visitor";
+
+      if (!email || !message) {
+        return res.status(400).json({ error: "Email and message are required." });
+      }
+
+      const id = "msg_" + Date.now() + "_" + Math.random().toString(36).substring(7);
+      const docRef = doc(db, "contact_messages", id);
+      const record = {
+        name: fullName,
+        email,
+        phone: phone || "",
+        message,
+        source: "website_contact",
+        createdAt: new Date().toISOString()
+      };
+      await setDoc(docRef, record);
+
+      // Dispatch alert email to practice administrators
+      await sendAdminNotificationEmail({
+        type: "contact",
+        name: fullName,
+        email,
+        phone: phone || "N/A",
+        details: message
+      });
+
+      res.json({ success: true, id, message: "Contact message saved and alert dispatched." });
+    } catch (err: any) {
+      console.error("Contact API error:", err);
+      res.status(500).json({ error: err.message || "Failed to submit message." });
+    }
+  });
+
+  // Unified Admin Inbox API (bypasses any client-side Firestore rule quirks or missing index issues)
+  app.get("/api/admin/inbox", async (req, res) => {
+    try {
+      // 1. Messages (contact form + SMS)
+      const mSnapshot = await getDocs(collection(db, "contact_messages"));
+      const messages: any[] = [];
+      mSnapshot.forEach(d => messages.push({ id: d.id, ...d.data() }));
+
+      // 2. Bookings
+      const bSnapshot = await getDocs(collection(db, "bookings"));
+      const bookings: any[] = [];
+      bSnapshot.forEach(d => bookings.push({ id: d.id, ...d.data() }));
+
+      // 3. Quiz results
+      const qSnapshot = await getDocs(collection(db, "pain_quiz_results"));
+      const quizResults: any[] = [];
+      qSnapshot.forEach(d => quizResults.push({ id: d.id, ...d.data() }));
+
+      // 4. Guide downloads
+      const gSnapshot = await getDocs(collection(db, "guide_downloads"));
+      const guideDownloads: any[] = [];
+      gSnapshot.forEach(d => guideDownloads.push({ id: d.id, ...d.data() }));
+
+      // 5. Calls & Voicemails
+      const cSnapshot = await getDocs(collection(db, "calls"));
+      const calls: any[] = [];
+      cSnapshot.forEach(d => calls.push({ id: d.id, ...d.data() }));
+
+      res.json({
+        messages,
+        bookings,
+        quizResults,
+        guideDownloads,
+        calls,
+        timestamp: new Date().toISOString()
+      });
+    } catch (err: any) {
+      console.error("Failed to load admin inbox:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
 
   // API Route for Hologram Generation
   app.post("/api/generate-hologram", async (req, res) => {
@@ -353,15 +612,21 @@ Kindly reply as John Doe, behaving like a genuine patient. Keep it short (max 2 
 
   // 1b. Generates access tokens allowing AdminPhoneConsole to act as browser WebRTC softphone device
   app.get("/api/twilio/token", (req, res) => {
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const apiKey = process.env.TWILIO_API_KEY;
-    const apiSecret = process.env.TWILIO_API_SECRET;
-    const twimlAppSid = process.env.TWILIO_TWIML_APP_SID;
+    const accountSid = (process.env.TWILIO_ACCOUNT_SID || "").trim();
+    const apiKey = (process.env.TWILIO_API_KEY || "").trim();
+    const apiSecret = (process.env.TWILIO_API_SECRET || "").trim();
+    const twimlAppSid = (process.env.TWILIO_TWIML_APP_SID || "").trim();
 
     if (!accountSid || !apiKey || !apiSecret || !twimlAppSid) {
       return res.json({ 
         token: null, 
-        warning: "Twilio credentials omitted. WebRTC client will work in visual-audio simulations." 
+        warning: "Twilio credentials omitted or incomplete in environment variables.",
+        missing: {
+          accountSid: !accountSid,
+          apiKey: !apiKey,
+          apiSecret: !apiSecret,
+          twimlAppSid: !twimlAppSid
+        }
       });
     }
 
@@ -386,6 +651,46 @@ Kindly reply as John Doe, behaving like a genuine patient. Keep it short (max 2 
       console.error("Failed to generate Twilio capability token:", e);
       res.status(500).json({ error: e.message });
     }
+  });
+
+  // Diagnostics endpoint for admin phone console
+  app.get("/api/twilio/diagnostics", (req, res) => {
+    const accountSid = (process.env.TWILIO_ACCOUNT_SID || "").trim();
+    const apiKey = (process.env.TWILIO_API_KEY || "").trim();
+    const apiSecret = (process.env.TWILIO_API_SECRET || "").trim();
+    const twimlAppSid = (process.env.TWILIO_TWIML_APP_SID || "").trim();
+    const twilioNumber = (process.env.TWILIO_NUMBER || "").trim();
+    const authToken = (process.env.TWILIO_AUTH_TOKEN || "").trim();
+    const geminiKey = (process.env.GEMINI_API_KEY || "").trim();
+
+    const host = req.get("host") || "unknown";
+    const protocol = req.protocol === "https" || req.get("x-forwarded-proto") === "https" ? "https" : "http";
+    const origin = `${protocol}://${host}`;
+
+    res.json({
+      environment: {
+        hasAccountSid: !!accountSid,
+        accountSidMasked: accountSid ? `${accountSid.substring(0, 6)}...${accountSid.substring(accountSid.length - 4)}` : null,
+        hasApiKey: !!apiKey,
+        apiKeyMasked: apiKey ? `${apiKey.substring(0, 6)}...${apiKey.substring(apiKey.length - 4)}` : null,
+        hasApiSecret: !!apiSecret,
+        hasTwimlAppSid: !!twimlAppSid,
+        twimlAppSidMasked: twimlAppSid ? `${twimlAppSid.substring(0, 6)}...${twimlAppSid.substring(twimlAppSid.length - 4)}` : null,
+        hasTwilioNumber: !!twilioNumber,
+        twilioNumber: twilioNumber || null,
+        hasAuthToken: !!authToken,
+        hasGeminiKey: !!geminiKey,
+      },
+      server: {
+        origin,
+        voiceWebhookUrl: `${origin}/api/twilio/voice`,
+        dialCallbackUrl: `${origin}/api/twilio/dial-callback`,
+        activeAdmins: getActiveAdminCount(),
+        activeSseClients: sseClients.length,
+        activeCallsCount: activeCalls.size,
+        answeringMode: activeAnsweringPref
+      }
+    });
   });
 
   // 2. Admin heartbeats to verify presence

@@ -24,10 +24,27 @@ export default function Contact() {
     };
 
     try {
+      // 1. Submit to server API for immediate admin email alert & robust server persistence
+      try {
+        await fetch("/api/contact", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: `${formData.get("first-name")} ${formData.get("last-name")}`.trim(),
+            email: formData.get("email"),
+            phone: formData.get("phone"),
+            message: formData.get("message")
+          })
+        });
+      } catch (apiErr) {
+        console.warn("Server contact API error, falling back to direct Firestore:", apiErr);
+      }
+
+      // 2. Direct Firestore client-side write
       await addDoc(collection(db, "contact_messages"), messageData);
       
       toast.success("Message Sent!", {
-        description: "Our team will get back to you shortly.",
+        description: "Our clinical team has received your message and will get back to you shortly.",
       });
       
       e.currentTarget.reset();

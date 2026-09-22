@@ -18,6 +18,9 @@ import KneePain from "./pages/programs/KneePain";
 import WeightLoss from "./pages/programs/WeightLoss";
 import Performance from "./pages/programs/Performance";
 import ImageGenerator from "./pages/ImageGenerator";
+import PainQuiz from "./pages/PainQuiz";
+import BiologicsDecision from "./pages/BiologicsDecision";
+import GuideDownload from "./pages/GuideDownload";
 import AdminDashboard from "./components/AdminDashboard";
 import PhoneConsole from "./pages/PhoneConsole";
 import { Toaster } from "@/components/ui/sonner";
@@ -60,6 +63,7 @@ function ScrollToTop() {
 export default function App() {
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <AnalyticsTracker />
       <Routes>
         {/* Public Routes */}
@@ -75,6 +79,11 @@ export default function App() {
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/image-generator" element={<ImageGenerator />} />
           
+          {/* Patient Funnel Routes */}
+          <Route path="/pain-quiz" element={<PainQuiz />} />
+          <Route path="/biologics-decision" element={<BiologicsDecision />} />
+          <Route path="/guide/regenerative-medicine-101" element={<GuideDownload />} />
+
           {/* Growth Funnels */}
           <Route path="/avoid-knee-surgery" element={<KneePain />} />
           <Route path="/medical-weight-loss" element={<WeightLoss />} />

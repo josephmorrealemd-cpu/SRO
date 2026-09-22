@@ -50,6 +50,54 @@ export default function EducationPage() {
           </div>
         </div>
 
+        {/* Patient Funnel Tools Section */}
+        <div className="mt-16 p-8 md:p-12 rounded-[40px] bg-teal-900 text-white shadow-xl relative overflow-hidden">
+          <div className="relative z-10 space-y-6">
+            <div className="max-w-2xl space-y-2">
+              <span className="text-xs font-bold uppercase tracking-widest text-teal-300">Free Patient Resources</span>
+              <h3 className="text-3xl sm:text-4xl font-extrabold">Download The Comprehensive Biologics Guide</h3>
+              <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
+                Download “Biologic Regeneration 101: Wharton’s Jelly, Exosomes, and PRP” by Dr. Joseph Morreale. Understand why cortisone breaks down cartilage, how structural allografts work, and how to avoid joint replacement.
+              </p>
+            </div>
+
+            <div className="grid sm:grid-cols-3 gap-4 pt-2">
+              <Link
+                to="/guide/regenerative-medicine-101"
+                className="p-5 rounded-2xl bg-white text-slate-900 hover:bg-teal-50 transition-all font-bold text-sm flex flex-col justify-between shadow-md group"
+              >
+                <div>
+                  <span className="text-xs text-teal-600 block mb-1">Instant PDF</span>
+                  <span className="group-hover:text-teal-700">Biologics 101 Guide</span>
+                </div>
+                <span className="text-xs text-slate-500 mt-4 flex items-center">Download Free Copy →</span>
+              </Link>
+
+              <Link
+                to="/biologics-decision"
+                className="p-5 rounded-2xl bg-teal-800/80 text-white hover:bg-teal-800 transition-all font-bold text-sm flex flex-col justify-between border border-teal-700 group"
+              >
+                <div>
+                  <span className="text-xs text-teal-300 block mb-1">Clinical Tool</span>
+                  <span>Decision Matrix</span>
+                </div>
+                <span className="text-xs text-teal-200 mt-4 flex items-center">Compare Wharton's, Exosomes & PRP →</span>
+              </Link>
+
+              <Link
+                to="/pain-quiz"
+                className="p-5 rounded-2xl bg-teal-800/80 text-white hover:bg-teal-800 transition-all font-bold text-sm flex flex-col justify-between border border-teal-700 group"
+              >
+                <div>
+                  <span className="text-xs text-teal-300 block mb-1">Self-Assessment</span>
+                  <span>Pain Quiz</span>
+                </div>
+                <span className="text-xs text-teal-200 mt-4 flex items-center">Check Your Compatibility →</span>
+              </Link>
+            </div>
+          </div>
+        </div>
+
         <div className="grid md:grid-cols-3 gap-8 mt-16">
           <div className="p-8 bg-white border border-slate-100 rounded-3xl shadow-sm hover:shadow-md transition-shadow">
             <h4 className="text-xl font-bold mb-4">Understanding PRP</h4>

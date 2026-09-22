@@ -3,7 +3,22 @@ import { db } from "./firebase";
 
 const SESSION_ID = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 
-export const trackEvent = async (type: 'page_view' | 'click' | 'ai_interaction', page: string, element?: string) => {
+export type AnalyticsEventType = 
+  | 'page_view' 
+  | 'click' 
+  | 'ai_interaction' 
+  | 'pain_quiz_completed' 
+  | 'decision_tool_interaction' 
+  | 'guide_downloaded' 
+  | 'email_nurture_triggered'
+  | 'nurture_email_triggered';
+
+export const trackEvent = async (
+  type: AnalyticsEventType, 
+  page: string, 
+  element?: string,
+  metadata?: string
+) => {
   try {
     const eventData: any = {
       type,
@@ -14,6 +29,9 @@ export const trackEvent = async (type: 'page_view' | 'click' | 'ai_interaction',
     
     if (element) {
       eventData.element = element;
+    }
+    if (metadata) {
+      eventData.metadata = metadata;
     }
 
     await addDoc(collection(db, "analytics_events"), eventData);

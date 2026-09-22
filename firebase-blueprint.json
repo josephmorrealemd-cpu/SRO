@@ -39,9 +39,10 @@
       "description": "A tracked user event.",
       "type": "object",
       "properties": {
-        "type": { "type": "string", "enum": ["page_view", "click", "ai_interaction"] },
+        "type": { "type": "string", "enum": ["page_view", "click", "ai_interaction", "pain_quiz_completed", "decision_tool_interaction", "guide_downloaded", "email_nurture_triggered", "nurture_email_triggered"] },
         "page": { "type": "string" },
         "element": { "type": "string" },
+        "metadata": { "type": "string" },
         "sessionId": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
@@ -88,6 +89,44 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["callSid", "callerPhone", "status", "createdAt"]
+    },
+    "PainQuizResult": {
+      "title": "PainQuizResult",
+      "description": "Patient self-assessment quiz submission with biologics-first clinical recommendation.",
+      "type": "object",
+      "properties": {
+        "joint": { "type": "string", "description": "Primary joint or area of pain" },
+        "duration": { "type": "string", "description": "Duration of injury/pain" },
+        "painLevel": { "type": "string", "description": "Pain intensity and characteristics" },
+        "limitations": { "type": "array", "description": "List of functional limitations" },
+        "priorTreatments": { "type": "array", "description": "Treatments previously tried" },
+        "surgeryStatus": { "type": "string", "description": "Surgical recommendation status" },
+        "goals": { "type": "string", "description": "Patient primary recovery goal" },
+        "recommendation": { "type": "string", "description": "Biologics recommendation title" },
+        "treatment": { "type": "string", "description": "Biologic treatment protocol" },
+        "rationale": { "type": "string", "description": "Clinical explanation for protocol" },
+        "name": { "type": "string", "description": "Optional patient name" },
+        "email": { "type": "string", "format": "email", "description": "Optional patient email" },
+        "phone": { "type": "string", "description": "Optional patient phone" },
+        "sessionId": { "type": "string", "description": "User session ID" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the quiz was submitted" }
+      },
+      "required": ["joint", "duration", "recommendation", "treatment", "createdAt"]
+    },
+    "GuideDownload": {
+      "title": "GuideDownload",
+      "description": "Gated patient lead download for regenerative medicine guide.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "Patient full name" },
+        "email": { "type": "string", "format": "email", "description": "Patient email address" },
+        "phone": { "type": "string", "description": "Optional phone number" },
+        "guideName": { "type": "string", "description": "Title of the downloaded guide" },
+        "jointConcern": { "type": "string", "description": "Primary joint or condition of concern" },
+        "sessionId": { "type": "string", "description": "User session ID" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the guide was downloaded" }
+      },
+      "required": ["name", "email", "guideName", "createdAt"]
     }
   },
   "firestore": {
@@ -114,6 +153,14 @@
     "calls": {
       "schema": "Call",
       "description": "Log of incoming Twilio receptionist sessions, live transcripts, and recorded voicemails."
+    },
+    "pain_quiz_results": {
+      "schema": "PainQuizResult",
+      "description": "Self-assessment quiz results and personalized biologics recommendations."
+    },
+    "guide_downloads": {
+      "schema": "GuideDownload",
+      "description": "Gated guide downloads and patient lead captures."
     }
   }
 }
