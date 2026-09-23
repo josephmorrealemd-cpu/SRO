@@ -21,6 +21,8 @@ import ImageGenerator from "./pages/ImageGenerator";
 import PainQuiz from "./pages/PainQuiz";
 import BiologicsDecision from "./pages/BiologicsDecision";
 import GuideDownload from "./pages/GuideDownload";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
 import AdminDashboard from "./components/AdminDashboard";
 import PhoneConsole from "./pages/PhoneConsole";
 import { Toaster } from "@/components/ui/sonner";
@@ -88,6 +90,12 @@ export default function App() {
           <Route path="/avoid-knee-surgery" element={<KneePain />} />
           <Route path="/medical-weight-loss" element={<WeightLoss />} />
           <Route path="/performance-optimization" element={<Performance />} />
+
+          {/* Legal & Policy Pages */}
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfService />} />
+          <Route path="/terms-of-service" element={<TermsOfService />} />
         </Route>
 
         {/* Admin Route */}

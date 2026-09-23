@@ -80,12 +80,9 @@ import {
   Tooltip, 
   ResponsiveContainer,
   AreaChart,
-  Area,
-  Cell,
-  PieChart,
-  Pie
+  Area
 } from "recharts";
-import { format, subDays, isSameDay, startOfDay } from "date-fns";
+import { format, subDays, isSameDay } from "date-fns";
 
 interface Booking {
   id: string;
@@ -190,9 +187,23 @@ export default function AdminDashboard() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [bookingSearch, setBookingSearch] = useState("");
   const [messageSearch, setMessageSearch] = useState("");
-  const [activeTab, setActiveTab] = useState("messages");
+  const [guideSearch, setGuideSearch] = useState("");
+  const [quizSearch, setQuizSearch] = useState("");
+  const [activeTab, setActiveTab] = useState("leads");
+  const [leadFilter, setLeadFilter] = useState<"all" | "guides" | "quiz">("all");
   const [selectedMessage, setSelectedMessage] = useState<ContactMessage | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: string, id: string } | null>(null);
+
+  const forceHardReload = () => {
+    try {
+      if ('caches' in window) {
+        caches.keys().then((names) => {
+          names.forEach((name) => caches.delete(name));
+        });
+      }
+    } catch {}
+    window.location.href = window.location.pathname + '?v=' + Date.now();
+  };
   
   // Hologram State
   const [currentHologram, setCurrentHologram] = useState<{ url: string, lastUpdated: any, lastAttempt: any } | null>(null);
@@ -473,12 +484,42 @@ export default function AdminDashboard() {
 
     const { type, id } = deleteConfirm;
     try {
-      await deleteDoc(doc(db, type, id));
+      let deleted = false;
+      try {
+        await deleteDoc(doc(db, type, id));
+        deleted = true;
+      } catch (clientErr) {
+        console.warn("Client Firestore delete failed, falling back to /api/admin/delete:", clientErr);
+      }
+
+      if (!deleted) {
+        const res = await fetch("/api/admin/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ collection: type, id })
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || "Failed to delete record");
+        }
+      }
+
+      if (type === "bookings") {
+        setBookings(prev => prev.filter(b => b.id !== id));
+      } else if (type === "contact_messages") {
+        setMessages(prev => prev.filter(m => m.id !== id));
+      } else if (type === "pain_quiz_results") {
+        setQuizLeads(prev => prev.filter(q => q.id !== id));
+      } else if (type === "guide_downloads") {
+        setGuideLeads(prev => prev.filter(g => g.id !== id));
+      } else if (type === "calls") {
+        setCallLogs(prev => prev.filter(c => c.id !== id));
+      }
       toast.success("Record deleted successfully");
       setDeleteConfirm(null);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, type);
-      toast.error("Failed to delete record");
+    } catch (error: any) {
+      console.error("Delete error:", error);
+      toast.error("Failed to delete record", { description: error?.message || "Please try again." });
     }
   };
 
@@ -507,9 +548,7 @@ export default function AdminDashboard() {
       const { imageUrl } = await response.json();
 
       if (imageUrl) {
-        // Use a try-catch for the setDoc to ensure we handle errors
         try {
-          // We use setDoc with merge: true to create or update the document
           const { setDoc } = await import("firebase/firestore");
           await setDoc(doc(db, "app_state", "hologram"), {
             hologramUrl: imageUrl,
@@ -553,6 +592,53 @@ export default function AdminDashboard() {
     m.email.toLowerCase().includes(messageSearch.toLowerCase()) ||
     (m.phone && m.phone.includes(messageSearch))
   );
+
+  const filteredGuideLeads = guideLeads.filter(g => 
+    (g.name || "").toLowerCase().includes(guideSearch.toLowerCase()) ||
+    (g.email || "").toLowerCase().includes(guideSearch.toLowerCase()) ||
+    (g.phone || "").includes(guideSearch) ||
+    (g.jointConcern || "").toLowerCase().includes(guideSearch.toLowerCase())
+  );
+
+  const filteredQuizLeads = quizLeads.filter(q => 
+    (q.name || "").toLowerCase().includes(quizSearch.toLowerCase()) ||
+    (q.email || "").toLowerCase().includes(quizSearch.toLowerCase()) ||
+    (q.phone || "").includes(quizSearch) ||
+    (q.joint || "").toLowerCase().includes(quizSearch.toLowerCase())
+  );
+
+  const getSearchPlaceholder = () => {
+    switch (activeTab) {
+      case "leads": return "Search quiz & guide leads (name, email, phone, joint)...";
+      case "guides": return "Search guide downloads (name, email, joint)...";
+      case "quiz": return "Search quiz assessments...";
+      case "bookings": return "Search bookings...";
+      case "messages": return "Search messages...";
+      case "calls": return "Search calls...";
+      default: return `Search ${activeTab}...`;
+    }
+  };
+
+  const getSearchValue = () => {
+    switch (activeTab) {
+      case "leads": return guideSearch || quizSearch;
+      case "guides": return guideSearch;
+      case "quiz": return quizSearch;
+      case "bookings": return bookingSearch;
+      case "messages": return messageSearch;
+      default: return "";
+    }
+  };
+
+  const handleSearchChange = (val: string) => {
+    switch (activeTab) {
+      case "guides": setGuideSearch(val); break;
+      case "quiz": setQuizSearch(val); break;
+      case "bookings": setBookingSearch(val); break;
+      case "messages": setMessageSearch(val); break;
+      case "leads": setGuideSearch(val); setQuizSearch(val); break;
+    }
+  };
 
   if (loading) return <div className="p-8 text-center">Loading dashboard...</div>;
 
@@ -617,7 +703,7 @@ export default function AdminDashboard() {
             <ShieldCheck className="w-6 h-6 text-teal-600" />
             <span className="font-bold text-slate-900">Admin Dashboard</span>
             {activeSessions.filter(s => {
-              const lastActive = s.lastActive?.toDate();
+              const lastActive = s.lastActive?.toDate ? s.lastActive.toDate() : (s.lastActive?.seconds ? new Date(s.lastActive.seconds * 1000) : null);
               return lastActive && (new Date().getTime() - lastActive.getTime()) < 120000;
             }).length > 0 && (
               <Badge className="ml-2 bg-teal-500 text-white animate-pulse border-none h-5 px-1.5 text-[10px]">
@@ -667,48 +753,103 @@ export default function AdminDashboard() {
         </div>
       </header>
 
+      {/* Real-time Refresh Action Bar */}
+      <div className="bg-sky-50 border-b border-sky-100 px-4 py-2.5 text-xs text-sky-900">
+        <div className="container mx-auto flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Badge className="bg-sky-600 text-white text-[10px] px-2 py-0.5 font-bold">Admin Console</Badge>
+            <span className="font-medium">Managing leads, quiz results, and downloads. If recent delete buttons are not showing, please click Reload.</span>
+          </div>
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="h-7 text-xs px-3 bg-white border-sky-300 text-sky-800 hover:bg-sky-100 font-semibold shadow-xs flex items-center gap-1.5 cursor-pointer"
+            onClick={forceHardReload}
+          >
+            <RefreshCw className="w-3.5 h-3.5 text-sky-600" />
+            <span>Reload Dashboard</span>
+          </Button>
+        </div>
+      </div>
+
       <main className="container mx-auto px-4 py-8 space-y-8">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="rounded-2xl border-slate-200">
-            <CardContent className="p-6 flex items-center gap-4">
-              <div className="w-12 h-12 bg-teal-50 rounded-xl flex items-center justify-center">
-                <Calendar className="w-6 h-6 text-teal-600" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <Card 
+            className={`rounded-2xl border transition-all cursor-pointer hover:shadow-md ${activeTab === "leads" && leadFilter === "guides" ? "border-sky-500 ring-2 ring-sky-500/20 bg-sky-50/20" : "border-slate-200 hover:border-sky-300"}`}
+            onClick={() => { setActiveTab("leads"); setLeadFilter("guides"); }}
+          >
+            <CardContent className="p-5 flex items-center gap-3.5">
+              <div className="w-11 h-11 bg-sky-100 text-sky-600 rounded-xl flex items-center justify-center shrink-0">
+                <Download className="w-5 h-5" />
               </div>
-              <div>
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Bookings</p>
-                <p className="text-2xl font-bold text-slate-900">{bookings.length}</p>
+              <div className="min-w-0">
+                <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider truncate">Guide Downloads</p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-2xl font-bold text-slate-900">{guideLeads.length}</p>
+                  <span className="text-[11px] text-sky-600 font-medium">101 Guide</span>
+                </div>
               </div>
             </CardContent>
           </Card>
-          <Card className="rounded-2xl border-slate-200">
-            <CardContent className="p-6 flex items-center gap-4">
-              <div className="w-12 h-12 bg-sky-50 rounded-xl flex items-center justify-center">
-                <MessageSquare className="w-6 h-6 text-sky-600" />
+
+          <Card 
+            className={`rounded-2xl border transition-all cursor-pointer hover:shadow-md ${activeTab === "leads" && leadFilter === "quiz" ? "border-teal-500 ring-2 ring-teal-500/20 bg-teal-50/20" : "border-slate-200 hover:border-teal-300"}`}
+            onClick={() => { setActiveTab("leads"); setLeadFilter("quiz"); }}
+          >
+            <CardContent className="p-5 flex items-center gap-3.5">
+              <div className="w-11 h-11 bg-teal-100 text-teal-600 rounded-xl flex items-center justify-center shrink-0">
+                <Sparkles className="w-5 h-5" />
               </div>
-              <div>
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Messages & SMS</p>
+              <div className="min-w-0">
+                <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider truncate">Pain Quiz Leads</p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-2xl font-bold text-slate-900">{quizLeads.length}</p>
+                  <span className="text-[11px] text-teal-600 font-medium">Assessed</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card 
+            className={`rounded-2xl border transition-all cursor-pointer hover:shadow-md ${activeTab === "messages" ? "border-slate-900 ring-2 ring-slate-900/10 bg-slate-50/50" : "border-slate-200 hover:border-slate-300"}`}
+            onClick={() => setActiveTab("messages")}
+          >
+            <CardContent className="p-5 flex items-center gap-3.5">
+              <div className="w-11 h-11 bg-slate-100 text-slate-700 rounded-xl flex items-center justify-center shrink-0">
+                <MessageSquare className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider truncate">Messages & SMS</p>
                 <p className="text-2xl font-bold text-slate-900">{messages.length}</p>
               </div>
             </CardContent>
           </Card>
-          <Card className="rounded-2xl border-slate-200">
-            <CardContent className="p-6 flex items-center gap-4">
-              <div className="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center">
-                <FileText className="w-6 h-6 text-amber-600" />
+
+          <Card 
+            className={`rounded-2xl border transition-all cursor-pointer hover:shadow-md ${activeTab === "bookings" ? "border-slate-900 ring-2 ring-slate-900/10 bg-slate-50/50" : "border-slate-200 hover:border-slate-300"}`}
+            onClick={() => setActiveTab("bookings")}
+          >
+            <CardContent className="p-5 flex items-center gap-3.5">
+              <div className="w-11 h-11 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center shrink-0">
+                <Calendar className="w-5 h-5" />
               </div>
-              <div>
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Quiz & Guides</p>
-                <p className="text-2xl font-bold text-slate-900">{quizLeads.length + guideLeads.length}</p>
+              <div className="min-w-0">
+                <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider truncate">Bookings</p>
+                <p className="text-2xl font-bold text-slate-900">{bookings.length}</p>
               </div>
             </CardContent>
           </Card>
-          <Card className="rounded-2xl border-slate-200">
-            <CardContent className="p-6 flex items-center gap-4">
-              <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center">
-                <Users className="w-6 h-6 text-indigo-600" />
+
+          <Card 
+            className={`rounded-2xl border transition-all cursor-pointer hover:shadow-md ${activeTab === "leads" && leadFilter === "all" ? "border-indigo-500 ring-2 ring-indigo-500/20 bg-indigo-50/20" : "border-slate-200 hover:border-indigo-300"}`}
+            onClick={() => { setActiveTab("leads"); setLeadFilter("all"); }}
+          >
+            <CardContent className="p-5 flex items-center gap-3.5">
+              <div className="w-11 h-11 bg-indigo-100 text-indigo-600 rounded-xl flex items-center justify-center shrink-0">
+                <Users className="w-5 h-5" />
               </div>
-              <div>
-                <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Total Leads</p>
+              <div className="min-w-0">
+                <p className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider truncate">Total Unique Leads</p>
                 <p className="text-2xl font-bold text-slate-900">
                   {new Set([
                     ...bookings.map(b => b.email), 
@@ -722,39 +863,60 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+        <Tabs value={activeTab === "guides" || activeTab === "quiz" ? "leads" : activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <TabsList className="bg-white border border-slate-200 p-1 rounded-xl h-auto flex flex-wrap gap-1">
-              <TabsTrigger value="messages" className="rounded-lg px-4 py-2 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+            <TabsList className="bg-white border border-slate-200 p-1.5 rounded-2xl h-auto flex flex-wrap gap-1.5 shadow-xs">
+              <TabsTrigger 
+                value="messages" 
+                className="rounded-xl px-4 py-2.5 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white flex items-center gap-1.5 transition-all shadow-xs"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
                 Messages ({messages.length})
               </TabsTrigger>
-              <TabsTrigger value="bookings" className="rounded-lg px-4 py-2 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+              <TabsTrigger 
+                value="bookings" 
+                className="rounded-xl px-4 py-2.5 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white flex items-center gap-1.5 transition-all shadow-xs"
+              >
+                <Calendar className="w-3.5 h-3.5" />
                 Bookings ({bookings.length})
               </TabsTrigger>
-              <TabsTrigger value="leads" className="rounded-lg px-4 py-2 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+              <TabsTrigger 
+                value="leads" 
+                className="rounded-xl px-4 py-2.5 text-xs font-semibold data-[state=active]:bg-teal-700 data-[state=active]:text-white flex items-center gap-1.5 transition-all shadow-xs"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
                 Quiz & Guides ({quizLeads.length + guideLeads.length})
               </TabsTrigger>
-              <TabsTrigger value="calls" className="rounded-lg px-4 py-2 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+              <TabsTrigger 
+                value="calls" 
+                className="rounded-xl px-4 py-2.5 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white flex items-center gap-1.5 transition-all shadow-xs"
+              >
+                <Phone className="w-3.5 h-3.5" />
                 Calls ({callLogs.length})
               </TabsTrigger>
-              <TabsTrigger value="analytics" className="rounded-lg px-4 py-2 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+              <TabsTrigger 
+                value="analytics" 
+                className="rounded-xl px-4 py-2.5 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white flex items-center gap-1.5 transition-all shadow-xs"
+              >
+                <Activity className="w-3.5 h-3.5" />
                 Analytics
               </TabsTrigger>
-              <TabsTrigger value="hologram" className="rounded-lg px-4 py-2 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+              <TabsTrigger 
+                value="hologram" 
+                className="rounded-xl px-4 py-2.5 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white flex items-center gap-1.5 transition-all shadow-xs"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
                 Hologram
               </TabsTrigger>
             </TabsList>
 
-            <div className="relative w-full sm:w-64">
+            <div className="relative w-full sm:w-72">
               <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <Input 
-                placeholder={`Search ${activeTab}...`} 
+                placeholder={getSearchPlaceholder()} 
                 className="pl-10 rounded-xl border-slate-200 bg-white"
-                value={activeTab === "bookings" ? bookingSearch : messageSearch}
-                onChange={(e) => {
-                  if (activeTab === "bookings") setBookingSearch(e.target.value);
-                  else setMessageSearch(e.target.value);
-                }}
+                value={getSearchValue()}
+                onChange={(e) => handleSearchChange(e.target.value)}
               />
             </div>
           </div>
@@ -967,121 +1129,159 @@ export default function AdminDashboard() {
             </Card>
           </TabsContent>
 
-          {/* Leads Tab: Pain Quiz and Guide Downloads */}
+          {/* Leads Tab: Pain Quiz and Guide Downloads (with delete actions) */}
           <TabsContent value="leads">
             <div className="space-y-6">
-              {/* Pain Quiz Submissions */}
-              <Card className="rounded-2xl border-slate-200 overflow-hidden">
-                <CardHeader className="bg-slate-50 border-b border-slate-200 py-4">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-bold flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-teal-600" />
-                      Pain Quiz Assessments ({quizLeads.length})
-                    </CardTitle>
-                    <Badge variant="outline" className="border-teal-200 bg-teal-50 text-teal-700">
-                      High Intent
-                    </Badge>
+              {/* Free Guide Downloads */}
+              <Card className="rounded-2xl border-slate-200 overflow-hidden shadow-xs">
+                <CardHeader className="bg-slate-50 border-b border-slate-200 py-4 px-6 flex flex-row items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-sky-100 flex items-center justify-center text-sky-600 shadow-xs">
+                      <Download className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base font-bold flex items-center gap-2">
+                        Free Guide Downloads ({guideLeads.length})
+                      </CardTitle>
+                      <p className="text-xs text-slate-500">Patients who requested regenerative medicine PDF guides</p>
+                    </div>
                   </div>
+                  <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-700 font-semibold px-2.5 py-0.5">
+                    Regenerative 101
+                  </Badge>
                 </CardHeader>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Patient</TableHead>
-                      <TableHead>Contact</TableHead>
-                      <TableHead>Joint / Injury</TableHead>
-                      <TableHead>Biologic Recommendations</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {quizLeads.length === 0 ? (
+                <div className="overflow-x-auto w-full">
+                  <Table className="min-w-[700px]">
+                    <TableHeader className="bg-slate-50">
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center py-12 text-slate-400">
-                          No quiz submissions recorded yet
-                        </TableCell>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Email & Phone</TableHead>
+                        <TableHead>Joint of Concern</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
-                    ) : (
-                      quizLeads.map((q) => (
-                        <TableRow key={q.id}>
-                          <TableCell className="text-xs text-slate-500 whitespace-nowrap">
-                            {formatSafeDate(q.createdAt)}
-                          </TableCell>
-                          <TableCell className="font-bold text-slate-900">{q.name}</TableCell>
-                          <TableCell className="text-sm">
-                            <div className="flex flex-col">
-                              <span>{q.email}</span>
-                              <span className="text-slate-500 text-xs font-mono">{q.phone}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className="bg-teal-50 text-teal-800 border-teal-200">
-                              {q.joint}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-xs text-slate-600">
-                            {Array.isArray(q.recommendations) 
-                              ? q.recommendations.map((r: any) => r.title || r).join(", ")
-                              : "Wharton's Jelly, Exosomes, PRP"}
+                    </TableHeader>
+                    <TableBody>
+                      {guideLeads.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center py-12 text-slate-400">
+                            No guide downloads recorded yet
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                      ) : (
+                        guideLeads.map((g) => (
+                          <TableRow key={g.id}>
+                            <TableCell className="text-xs text-slate-500 whitespace-nowrap">
+                              {formatSafeDate(g.createdAt)}
+                            </TableCell>
+                            <TableCell className="font-bold text-slate-900">{g.name}</TableCell>
+                            <TableCell className="text-sm">
+                              <div className="flex flex-col">
+                                <span>{g.email}</span>
+                                <span className="text-slate-500 text-xs font-mono">{g.phone}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="border-slate-200 text-slate-700">
+                                {g.jointConcern || "General Orthopedic"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                                onClick={() => setDeleteConfirm({ type: "guide_downloads", id: g.id })}
+                                title="Delete lead"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </Card>
 
-              {/* Free Guide Downloads */}
-              <Card className="rounded-2xl border-slate-200 overflow-hidden">
-                <CardHeader className="bg-slate-50 border-b border-slate-200 py-4">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-bold flex items-center gap-2">
-                      <Download className="w-4 h-4 text-sky-600" />
-                      Free Guide Downloads ({guideLeads.length})
-                    </CardTitle>
-                    <Badge variant="outline" className="border-sky-200 bg-sky-50 text-sky-700">
-                      Regenerative 101
-                    </Badge>
+              {/* Pain Quiz Submissions */}
+              <Card className="rounded-2xl border-slate-200 overflow-hidden shadow-xs">
+                <CardHeader className="bg-slate-50 border-b border-slate-200 py-4 px-6 flex flex-row items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-teal-100 flex items-center justify-center text-teal-700 shadow-xs">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base font-bold flex items-center gap-2">
+                        Pain Quiz Assessments ({quizLeads.length})
+                      </CardTitle>
+                      <p className="text-xs text-slate-500">Interactive candidacy evaluation results</p>
+                    </div>
                   </div>
+                  <Badge variant="outline" className="border-teal-200 bg-teal-50 text-teal-700 font-semibold px-2.5 py-0.5">
+                    High Intent
+                  </Badge>
                 </CardHeader>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email & Phone</TableHead>
-                      <TableHead>Joint of Concern</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {guideLeads.length === 0 ? (
+                <div className="overflow-x-auto w-full">
+                  <Table className="min-w-[800px]">
+                    <TableHeader className="bg-slate-50">
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center py-12 text-slate-400">
-                          No guide downloads recorded yet
-                        </TableCell>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Patient</TableHead>
+                        <TableHead>Contact</TableHead>
+                        <TableHead>Joint / Injury</TableHead>
+                        <TableHead>Biologic Recommendations</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
-                    ) : (
-                      guideLeads.map((g) => (
-                        <TableRow key={g.id}>
-                          <TableCell className="text-xs text-slate-500 whitespace-nowrap">
-                            {formatSafeDate(g.createdAt)}
-                          </TableCell>
-                          <TableCell className="font-bold text-slate-900">{g.name}</TableCell>
-                          <TableCell className="text-sm">
-                            <div className="flex flex-col">
-                              <span>{g.email}</span>
-                              <span className="text-slate-500 text-xs font-mono">{g.phone}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="border-slate-200 text-slate-700">
-                              {g.jointConcern || "General Orthopedic"}
-                            </Badge>
+                    </TableHeader>
+                    <TableBody>
+                      {quizLeads.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={6} className="text-center py-12 text-slate-400">
+                            No quiz submissions recorded yet
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+                      ) : (
+                        quizLeads.map((q) => (
+                          <TableRow key={q.id}>
+                            <TableCell className="text-xs text-slate-500 whitespace-nowrap">
+                              {formatSafeDate(q.createdAt)}
+                            </TableCell>
+                            <TableCell className="font-bold text-slate-900">{q.name}</TableCell>
+                            <TableCell className="text-sm">
+                              <div className="flex flex-col">
+                                <span>{q.email}</span>
+                                <span className="text-slate-500 text-xs font-mono">{q.phone}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge className="bg-teal-50 text-teal-800 border-teal-200">
+                                {q.joint}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-xs text-slate-600">
+                              {Array.isArray(q.recommendations) 
+                                ? q.recommendations.map((r: any) => r.title || r).join(", ")
+                                : "Wharton's Jelly, Exosomes, PRP"}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                                onClick={() => setDeleteConfirm({ type: "pain_quiz_results", id: q.id })}
+                                title="Delete lead"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               </Card>
             </div>
           </TabsContent>
@@ -1097,7 +1297,7 @@ export default function AdminDashboard() {
                   </CardTitle>
                   <Button 
                     variant="outline" 
-                    size="sm"
+                    size="sm" 
                     className="text-xs rounded-xl"
                     onClick={() => window.location.href = "/admin/phone"}
                   >
@@ -1149,7 +1349,7 @@ export default function AdminDashboard() {
                           {c.voicemailUrl ? (
                             <Button 
                               variant="outline" 
-                              size="sm"
+                              size="sm" 
                               className="rounded-lg text-xs"
                               onClick={() => window.open(c.voicemailUrl, '_blank')}
                             >
@@ -1169,7 +1369,6 @@ export default function AdminDashboard() {
 
           <TabsContent value="analytics" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Live Traffic Card */}
               <Card className="rounded-2xl border-slate-200 lg:col-span-1">
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -1179,7 +1378,7 @@ export default function AdminDashboard() {
                     </CardTitle>
                     <Badge className="bg-teal-500 text-white animate-pulse border-none">
                       {activeSessions.filter(s => {
-                        const lastActive = s.lastActive?.toDate();
+                        const lastActive = s.lastActive?.toDate ? s.lastActive.toDate() : (s.lastActive?.seconds ? new Date(s.lastActive.seconds * 1000) : null);
                         return lastActive && (new Date().getTime() - lastActive.getTime()) < 120000;
                       }).length} Active
                     </Badge>
@@ -1189,17 +1388,19 @@ export default function AdminDashboard() {
                   <div className="space-y-4">
                     {activeSessions
                       .filter(s => {
-                        const lastActive = s.lastActive?.toDate();
+                        const lastActive = s.lastActive?.toDate ? s.lastActive.toDate() : (s.lastActive?.seconds ? new Date(s.lastActive.seconds * 1000) : null);
                         return lastActive && (new Date().getTime() - lastActive.getTime()) < 120000;
                       })
                       .slice(0, 5)
-                      .map((session) => (
-                        <div key={session.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                      .map((s) => (
+                        <div key={s.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
                           <div className="flex flex-col">
                             <span className="text-xs font-bold text-slate-900 truncate max-w-[150px]">
-                              {session.page === "/" ? "Home" : session.page.replace("/", "").charAt(0).toUpperCase() + session.page.slice(2)}
+                              {s.page === "/" ? "Home" : s.page.replace("/", "").charAt(0).toUpperCase() + s.page.slice(2)}
                             </span>
-                            <span className="text-[10px] text-slate-500">Session: {session.sessionId.slice(0, 8)}...</span>
+                            <span className="text-[10px] text-slate-500">
+                              Session: {s.sessionId.slice(0, 8)}...
+                            </span>
                           </div>
                           <div className="flex items-center gap-1 text-[10px] text-teal-600 font-medium">
                             <Clock className="w-3 h-3" />
@@ -1208,7 +1409,7 @@ export default function AdminDashboard() {
                         </div>
                       ))}
                     {activeSessions.filter(s => {
-                      const lastActive = s.lastActive?.toDate();
+                      const lastActive = s.lastActive?.toDate ? s.lastActive.toDate() : (s.lastActive?.seconds ? new Date(s.lastActive.seconds * 1000) : null);
                       return lastActive && (new Date().getTime() - lastActive.getTime()) < 120000;
                     }).length === 0 && (
                       <div className="text-center py-10 text-slate-400 text-sm">
@@ -1216,7 +1417,7 @@ export default function AdminDashboard() {
                       </div>
                     )}
                   </div>
-                  
+
                   <Button 
                     variant="outline" 
                     className="w-full mt-6 rounded-xl border-slate-200 text-slate-600"
@@ -1228,7 +1429,6 @@ export default function AdminDashboard() {
                 </CardContent>
               </Card>
 
-              {/* Traffic Trend Chart */}
               <Card className="rounded-2xl border-slate-200 lg:col-span-2">
                 <CardHeader>
                   <CardTitle className="text-lg font-bold flex items-center gap-2">
@@ -1238,20 +1438,17 @@ export default function AdminDashboard() {
                 </CardHeader>
                 <CardContent className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart
-                      data={Array.from({ length: 7 }).map((_, i) => {
-                        const date = subDays(new Date(), 6 - i);
-                        const count = events.filter(e => 
-                          e.type === 'page_view' && 
-                          e.createdAt && 
-                          isSameDay(e.createdAt.toDate(), date)
-                        ).length;
-                        return {
-                          name: format(date, "MMM dd"),
-                          views: count
-                        };
-                      })}
-                    >
+                    <AreaChart data={Array.from({ length: 7 }).map((_, i) => {
+                      const d = subDays(new Date(), 6 - i);
+                      const count = events.filter(e => {
+                        const eventDate = e.createdAt?.toDate ? e.createdAt.toDate() : (e.createdAt?.seconds ? new Date(e.createdAt.seconds * 1000) : null);
+                        return e.type === "page_view" && eventDate && isSameDay(eventDate, d);
+                      }).length;
+                      return {
+                        name: format(d, "MMM dd"),
+                        views: count
+                      };
+                    })}>
                       <defs>
                         <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#0d9488" stopOpacity={0.1}/>
@@ -1259,18 +1456,8 @@ export default function AdminDashboard() {
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis 
-                        dataKey="name" 
-                        axisLine={false} 
-                        tickLine={false} 
-                        tick={{ fill: '#94a3b8', fontSize: 12 }}
-                        dy={10}
-                      />
-                      <YAxis 
-                        axisLine={false} 
-                        tickLine={false} 
-                        tick={{ fill: '#94a3b8', fontSize: 12 }}
-                      />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} dy={10} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 12 }} />
                       <Tooltip 
                         contentStyle={{ 
                           borderRadius: '12px', 
@@ -1279,14 +1466,7 @@ export default function AdminDashboard() {
                           fontSize: '12px'
                         }} 
                       />
-                      <Area 
-                        type="monotone" 
-                        dataKey="views" 
-                        stroke="#0d9488" 
-                        strokeWidth={3}
-                        fillOpacity={1} 
-                        fill="url(#colorViews)" 
-                      />
+                      <Area type="monotone" dataKey="views" stroke="#0d9488" strokeWidth={3} fillOpacity={1} fill="url(#colorViews)" />
                     </AreaChart>
                   </ResponsiveContainer>
                 </CardContent>
@@ -1294,7 +1474,6 @@ export default function AdminDashboard() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Popular Pages */}
               <Card className="rounded-2xl border-slate-200">
                 <CardHeader>
                   <CardTitle className="text-lg font-bold flex items-center gap-2">
@@ -1304,22 +1483,19 @@ export default function AdminDashboard() {
                 </CardHeader>
                 <CardContent className="h-[300px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
+                    <BarChart 
                       layout="vertical"
                       data={Object.entries(
                         events
-                          .filter(e => e.type === 'page_view')
-                          .reduce((acc, e) => {
+                          .filter(e => e.type === "page_view")
+                          .reduce((acc: any, e) => {
                             acc[e.page] = (acc[e.page] || 0) + 1;
                             return acc;
-                          }, {} as Record<string, number>)
-                      )
-                        .map(([page, count]) => ({
-                          name: page === "/" ? "Home" : page.replace("/", "").split("/").pop()?.replace("-", " ").toUpperCase() || page,
-                          views: count
-                        }))
-                        .sort((a, b) => b.views - a.views)
-                        .slice(0, 5)}
+                          }, {})
+                      ).map(([page, count]) => ({
+                        name: page === "/" ? "Home" : page.replace("/", "").split("/").pop()?.replace("-", " ").toUpperCase() || page,
+                        views: count
+                      })).sort((a: any, b: any) => b.views - a.views).slice(0, 5)}
                       margin={{ left: 40 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
@@ -1334,7 +1510,11 @@ export default function AdminDashboard() {
                       />
                       <Tooltip 
                         cursor={{ fill: '#f8fafc' }}
-                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                        contentStyle={{ 
+                          borderRadius: '12px', 
+                          border: 'none', 
+                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' 
+                        }} 
                       />
                       <Bar dataKey="views" fill="#0d9488" radius={[0, 4, 4, 0]} barSize={20} />
                     </BarChart>
@@ -1342,11 +1522,10 @@ export default function AdminDashboard() {
                 </CardContent>
               </Card>
 
-              {/* Conversion Summary */}
               <Card className="rounded-2xl border-slate-200">
                 <CardHeader>
                   <CardTitle className="text-lg font-bold flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-teal-600" />
+                    <TrendingUp className="w-5 h-5 text-teal-600" />
                     Conversion Summary
                   </CardTitle>
                 </CardHeader>
@@ -1359,28 +1538,31 @@ export default function AdminDashboard() {
                       </div>
                       <div className="text-right">
                         <p className="text-xl font-bold text-teal-600">
-                          {events.length > 0 
-                            ? ((bookings.length / Math.max(1, new Set(events.map(e => e.sessionId)).size)) * 100).toFixed(1)
-                            : 0}%
+                          {events.length > 0 ? ((bookings.length / Math.max(1, new Set(events.map(e => e.sessionId)).size)) * 100).toFixed(1) : 0}%
                         </p>
                       </div>
                     </div>
-                    
                     <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                       <div 
-                        className="bg-teal-500 h-full transition-all duration-1000" 
-                        style={{ width: `${Math.min(100, (bookings.length / Math.max(1, new Set(events.map(e => e.sessionId)).size)) * 100)}%` }}
+                        className="bg-teal-500 h-full transition-all duration-1000"
+                        style={{ 
+                          width: `${Math.min(100, (bookings.length / Math.max(1, new Set(events.map(e => e.sessionId)).size)) * 100)}%` 
+                        }}
                       />
                     </div>
 
                     <div className="grid grid-cols-2 gap-4 pt-4">
                       <div className="p-4 bg-teal-50 rounded-2xl border border-teal-100">
                         <p className="text-[10px] uppercase font-bold text-teal-600 mb-1">Total Sessions</p>
-                        <p className="text-xl font-bold text-teal-900">{new Set(events.map(e => e.sessionId)).size}</p>
+                        <p className="text-xl font-bold text-teal-900">
+                          {new Set(events.map(e => e.sessionId)).size}
+                        </p>
                       </div>
                       <div className="p-4 bg-sky-50 rounded-2xl border border-sky-100">
                         <p className="text-[10px] uppercase font-bold text-sky-600 mb-1">Total Page Views</p>
-                        <p className="text-xl font-bold text-sky-900">{events.filter(e => e.type === 'page_view').length}</p>
+                        <p className="text-xl font-bold text-sky-900">
+                          {events.filter(e => e.type === "page_view").length}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -1405,8 +1587,8 @@ export default function AdminDashboard() {
                         src={currentHologram.url} 
                         alt="Current Daily Hologram" 
                         className="w-full h-full object-contain opacity-90"
-                        style={{ 
-                          filter: 'hue-rotate(160deg) brightness(1.2) contrast(1.1) drop-shadow(0 0 15px rgba(20, 184, 166, 0.4))',
+                        style={{
+                          filter: "hue-rotate(160deg) brightness(1.2) contrast(1.1) drop-shadow(0 0 15px rgba(20, 184, 166, 0.4))"
                         }}
                       />
                     ) : (
@@ -1415,30 +1597,24 @@ export default function AdminDashboard() {
                         <p className="text-sm">No hologram generated yet.</p>
                       </div>
                     )}
-                    
-                    {/* Scanning Line Animation */}
                     <motion.div 
                       animate={{ top: ["-10%", "110%"] }}
                       transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
                       className="absolute left-0 right-0 h-[2px] bg-teal-400/60 shadow-[0_0_20px_rgba(45,212,191,0.8)] z-10 pointer-events-none"
                     />
                   </div>
-                  
+
                   <div className="mt-8 p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
                     <div className="flex justify-between text-xs">
                       <span className="text-slate-500">Last Successful Update:</span>
                       <span className="font-bold text-slate-900">
-                        {currentHologram?.lastUpdated 
-                          ? currentHologram.lastUpdated.toDate().toLocaleString() 
-                          : "Never"}
+                        {currentHologram?.lastUpdated?.toDate ? currentHologram.lastUpdated.toDate().toLocaleString() : "Never"}
                       </span>
                     </div>
                     <div className="flex justify-between text-xs">
                       <span className="text-slate-500">Last AI Attempt:</span>
                       <span className="font-bold text-slate-900">
-                        {currentHologram?.lastAttempt 
-                          ? currentHologram.lastAttempt.toDate().toLocaleString() 
-                          : "None"}
+                        {currentHologram?.lastAttempt?.toDate ? currentHologram.lastAttempt.toDate().toLocaleString() : "None"}
                       </span>
                     </div>
                     <div className="flex justify-between text-xs">
@@ -1465,7 +1641,7 @@ export default function AdminDashboard() {
                       If the current AI-generated image is incorrect or low quality, you can manually trigger a new generation. This will update the image for all patients immediately.
                     </p>
                     <Button 
-                      onClick={generateHologram} 
+                      onClick={generateHologram}
                       disabled={isGenerating}
                       className="w-full bg-teal-600 hover:bg-teal-700 text-white rounded-xl h-12 font-bold shadow-lg shadow-teal-600/20"
                     >
@@ -1529,7 +1705,7 @@ export default function AdminDashboard() {
           </DialogContent>
         </Dialog>
 
-        {/* Message View Dialog */}
+        {/* Message Detail Dialog */}
         <Dialog open={!!selectedMessage} onOpenChange={(open) => !open && setSelectedMessage(null)}>
           <DialogContent className="sm:max-w-lg rounded-3xl">
             <DialogHeader>
@@ -1554,17 +1730,11 @@ export default function AdminDashboard() {
               </div>
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
                 <p className="text-[10px] uppercase font-bold text-slate-400 mb-2">Message</p>
-                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">
-                  {selectedMessage?.message}
-                </p>
+                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{selectedMessage?.message}</p>
               </div>
             </div>
             <div className="flex justify-end gap-3">
-              <Button 
-                variant="outline" 
-                onClick={() => handlePrint(selectedMessage!, 'message')} 
-                className="rounded-xl px-6"
-              >
+              <Button variant="outline" onClick={() => selectedMessage && handlePrint(selectedMessage, 'message')} className="rounded-xl px-6">
                 <Printer className="w-4 h-4 mr-2" />
                 Print to PDF
               </Button>

@@ -1,4 +1,4 @@
-import { Phone, Mail, MapPin, Printer, Facebook, Twitter, Linkedin } from "lucide-react";
+import { Phone, Mail, MapPin, Printer, Facebook, Twitter, Linkedin, ShieldCheck, Lock } from "lucide-react";
 import { Link } from "react-router-dom";
 
 export default function Footer() {
@@ -61,6 +61,12 @@ export default function Footer() {
               <li><Link to="/investment" className="hover:text-teal-400 transition-colors">Investment Comparison</Link></li>
               <li><Link to="/education" className="hover:text-teal-400 transition-colors">Patient Education</Link></li>
               <li><Link to="/contact" className="hover:text-teal-400 transition-colors">Contact Us</Link></li>
+              <li className="pt-2 border-t border-slate-800">
+                <Link to="/admin" className="text-teal-400 hover:text-teal-300 font-medium transition-colors flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Admin Dashboard</span>
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -94,21 +100,26 @@ export default function Footer() {
 
         <div className="border-t border-slate-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-slate-500">
           <p>© 2026 Summit Regenerative Orthopedics. All rights reserved.</p>
-          <div className="flex gap-6">
-            <button 
-              type="button"
-              onClick={(e) => e.preventDefault()} 
-              className="hover:text-slate-300 cursor-pointer text-xs"
+          <div className="flex items-center gap-6">
+            <Link 
+              to="/privacy" 
+              className="hover:text-slate-300 transition-colors cursor-pointer text-xs"
             >
               Privacy Policy
-            </button>
-            <button 
-              type="button"
-              onClick={(e) => e.preventDefault()} 
-              className="hover:text-slate-300 cursor-pointer text-xs"
+            </Link>
+            <Link 
+              to="/terms" 
+              className="hover:text-slate-300 transition-colors cursor-pointer text-xs"
             >
               Terms of Service
-            </button>
+            </Link>
+            <Link 
+              to="/admin" 
+              className="hover:text-teal-400 transition-colors cursor-pointer text-xs flex items-center gap-1 text-slate-400"
+            >
+              <Lock className="w-3 h-3 text-slate-500" />
+              <span>Staff / Admin</span>
+            </Link>
           </div>
         </div>
       </div>
