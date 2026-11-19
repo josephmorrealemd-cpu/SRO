@@ -7,7 +7,7 @@ import FAQ from "../components/sections/FAQ";
 import TreatmentQuiz from "../components/sections/TreatmentQuiz";
 import Contact from "../components/sections/Contact";
 import { motion } from "motion/react";
-const SHOW_TESTIMONIALS = false;
+const SHOW_TESTIMONIALS = true;
 
 export default function Home() {
   return (

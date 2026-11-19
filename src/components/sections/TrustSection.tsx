@@ -35,7 +35,7 @@ const reasons = [
   }
 ];
 
-const SHOW_TRUST_TESTIMONIAL = false;
+const SHOW_TRUST_TESTIMONIAL = true;
 
 export default function TrustSection() {
   return (
