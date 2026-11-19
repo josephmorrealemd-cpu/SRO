@@ -7,6 +7,8 @@ import FAQ from "../components/sections/FAQ";
 import TreatmentQuiz from "../components/sections/TreatmentQuiz";
 import Contact from "../components/sections/Contact";
 import { motion } from "motion/react";
+const SHOW_TESTIMONIALS = false;
+
 export default function Home() {
   return (
     <motion.div
@@ -15,17 +17,19 @@ export default function Home() {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <title>Avoid Surgery for Joint Pain | PRP & Regenerative Orthopedics Westminster CO</title>
-      <meta name="description" content="Considering PRP or regenerative therapy for joint pain? Get a personalized non-surgical treatment plan at Summit Regenerative Orthopedics in Westminster, CO. Avoid surgery and recover faster." />
+      <title>Non-Surgical Orthopedic Care | PRP & Orthobiologics | Westminster CO</title>
+      <meta name="description" content="Non-surgical, physician-led orthopedic care in Westminster, CO. Explore options like PRP and orthobiologics for joint and tendon conditions at Summit Regenerative Orthopedics." />
       
       <Hero />
       <OutcomePathways />
       <ProcessSection />
       <TrustSection />
       <TreatmentQuiz />
-      <div className="bg-slate-50">
-        <Testimonials />
-      </div>
+      {SHOW_TESTIMONIALS && (
+        <div className="bg-slate-50">
+          <Testimonials />
+        </div>
+      )}
       <FAQ />
       <Contact />
     </motion.div>

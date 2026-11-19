@@ -35,6 +35,8 @@ const reasons = [
   }
 ];
 
+const SHOW_TRUST_TESTIMONIAL = false;
+
 export default function TrustSection() {
   return (
     <section className="py-24 bg-slate-50">
@@ -49,28 +51,30 @@ export default function TrustSection() {
               </p>
             </div>
 
-            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-12 h-12 bg-teal-500/10 rounded-xl flex items-center justify-center text-teal-600 font-bold text-xl">
-                  "
+            {SHOW_TRUST_TESTIMONIAL && (
+              <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 bg-teal-500/10 rounded-xl flex items-center justify-center text-teal-600 font-bold text-xl">
+                    "
+                  </div>
+                  <h4 className="text-xl font-bold text-slate-900 leading-tight">
+                    I avoided a double knee replacement through their integrated approach.
+                  </h4>
                 </div>
-                <h4 className="text-xl font-bold text-slate-900 leading-tight">
-                  I avoided a double knee replacement through their integrated approach.
-                </h4>
+                <p className="text-slate-500 text-sm leading-relaxed mb-6">
+                  "They didn't just give me an injection and send me home. They optimized my metabolic health, balanced my hormones, and gave me a specific recovery protocol. The difference is night and day."
+                </p>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden">
+                    <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=100&h=100" alt="Patient" referrerPolicy="no-referrer" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-slate-900">Mark S.</div>
+                    <div className="text-xs text-slate-500 font-medium">Verified Patient | Westminster, CO</div>
+                  </div>
+                </div>
               </div>
-              <p className="text-slate-500 text-sm leading-relaxed mb-6">
-                "They didn't just give me an injection and send me home. They optimized my metabolic health, balanced my hormones, and gave me a specific recovery protocol. The difference is night and day."
-              </p>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden">
-                  <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=100&h=100" alt="Patient" referrerPolicy="no-referrer" />
-                </div>
-                <div>
-                  <div className="text-sm font-bold text-slate-900">Mark S.</div>
-                  <div className="text-xs text-slate-500 font-medium">Verified Patient | Westminster, CO</div>
-                </div>
-              </div>
-            </div>
+            )}
           </div>
 
           <div className="grid sm:grid-cols-2 gap-6">

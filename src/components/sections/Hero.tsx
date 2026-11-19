@@ -32,17 +32,17 @@ export default function Hero() {
           </div>
           
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-bold text-slate-900 leading-[1.1] tracking-tight">
-            Restore Cartilage. <br />
-            <span className="text-slate-400">Avoid Surgery.</span> <br />
-            <span className="text-teal-600 italic font-serif">Regenerate Naturally.</span>
+            Non-Surgical. <br />
+            <span className="text-slate-400">Physician-Led.</span> <br />
+            <span className="text-teal-600 italic font-serif">Orthopedic Care.</span>
           </h1>
           
           <div className="space-y-3 max-w-xl">
             <p className="text-lg sm:text-xl font-bold text-slate-900 leading-snug">
-              Advanced biologic regeneration — Wharton’s Jelly, Exosomes, PRP, and MSK Laser — delivered by a board-certified orthopedic surgeon.
+              Non-surgical, physician-led orthopedic care in Westminster — exploring options including Wharton’s Jelly, Exosomes, PRP, and MSK Laser.
             </p>
             <p className="text-base sm:text-lg text-slate-600 leading-relaxed">
-              Personalized non-surgical joint restoration, cellular signaling, and image-guided tissue scaffolding designed to eliminate chronic pain and prevent joint replacement.
+              Consultations to review your imaging, evaluate joint and tendon conditions, and discuss whether non-operative treatment fits your situation.
             </p>
           </div>
 
@@ -87,7 +87,7 @@ export default function Hero() {
               <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider leading-tight">Wharton's Jelly & Exosomes</div>
             </div>
             <div className="space-y-1">
-              <div className="text-2xl font-bold text-slate-900">100% MD</div>
+              <div className="text-2xl font-bold text-slate-900">MD-Led</div>
               <div className="text-[10px] text-slate-500 uppercase font-bold tracking-wider leading-tight">Board-Certified Surgeon</div>
             </div>
           </div>

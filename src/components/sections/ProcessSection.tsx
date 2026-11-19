@@ -35,9 +35,9 @@ export default function ProcessSection() {
       <div className="container mx-auto px-4">
         <div className="max-w-4xl mx-auto text-center mb-20 space-y-4">
           <h2 className="text-teal-400 font-bold uppercase tracking-widest text-sm">Our Process</h2>
-          <h3 className="text-4xl md:text-5xl font-bold tracking-tight">Simple steps to recovery</h3>
+          <h3 className="text-4xl md:text-5xl font-bold tracking-tight">How Our Consultation Process Works</h3>
           <p className="text-slate-400 text-lg">
-            We follow a rigorous medical framework to ensure your treatments are safe, effective, and evidence-informed.
+            We follow a structured clinical evaluation framework to review your imaging, discuss options, and determine appropriate care.
           </p>
         </div>
 

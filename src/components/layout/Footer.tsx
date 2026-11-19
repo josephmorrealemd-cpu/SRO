@@ -98,28 +98,33 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-slate-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-slate-500">
-          <p>© 2026 Summit Regenerative Orthopedics. All rights reserved.</p>
-          <div className="flex items-center gap-6">
-            <Link 
-              to="/privacy" 
-              className="hover:text-slate-300 transition-colors cursor-pointer text-xs"
-            >
-              Privacy Policy
-            </Link>
-            <Link 
-              to="/terms" 
-              className="hover:text-slate-300 transition-colors cursor-pointer text-xs"
-            >
-              Terms of Service
-            </Link>
-            <Link 
-              to="/admin" 
-              className="hover:text-teal-400 transition-colors cursor-pointer text-xs flex items-center gap-1 text-slate-400"
-            >
-              <Lock className="w-3 h-3 text-slate-500" />
-              <span>Staff / Admin</span>
-            </Link>
+        <div className="border-t border-slate-800 pt-8 space-y-4">
+          <p className="text-xs text-slate-400 text-center md:text-left leading-relaxed">
+            Individual results vary. Information on this site is educational and is not medical advice. Some treatments described may not be FDA-approved for all uses.
+          </p>
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-slate-500">
+            <p>© 2026 Summit Regenerative Orthopedics. All rights reserved.</p>
+            <div className="flex items-center gap-6">
+              <Link 
+                to="/privacy" 
+                className="hover:text-slate-300 transition-colors cursor-pointer text-xs"
+              >
+                Privacy Policy
+              </Link>
+              <Link 
+                to="/terms" 
+                className="hover:text-slate-300 transition-colors cursor-pointer text-xs"
+              >
+                Terms of Service
+              </Link>
+              <Link 
+                to="/admin" 
+                className="hover:text-teal-400 transition-colors cursor-pointer text-xs flex items-center gap-1 text-slate-400"
+              >
+                <Lock className="w-3 h-3 text-slate-500" />
+                <span>Staff / Admin</span>
+              </Link>
+            </div>
           </div>
         </div>
       </div>

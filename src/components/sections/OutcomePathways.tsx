@@ -44,9 +44,9 @@ export default function OutcomePathways() {
       <div className="container mx-auto px-4">
         <div className="text-center mb-16 space-y-4">
           <h2 className="text-teal-600 font-bold uppercase tracking-widest text-sm">Specialized Programs</h2>
-          <h3 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900">Your Outcome-Driven Path to Health</h3>
+          <h3 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900">Exploring Options for Joint, Tendon, and Metabolic Care</h3>
           <p className="text-slate-600 text-lg max-w-2xl mx-auto">
-            Instead of searching for ingredients, find the solution tailored to your specific goals and medical needs.
+            Consultations to review your medical history and discuss whether non-operative orthopedic or clinical programs fit your situation.
           </p>
         </div>
 

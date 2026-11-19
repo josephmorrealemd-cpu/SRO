@@ -149,7 +149,7 @@ export default function TreatmentQuiz() {
                         <span className="text-xs font-bold uppercase tracking-[0.2em]">Treatment Matcher</span>
                       </div>
                       <h2 className="text-3xl md:text-4xl font-bold text-white tracking-tight">
-                        Is Regenerative Medicine Right for You?
+                        Exploring Non-Operative Options for Your Situation
                       </h2>
                       <div className="flex gap-2">
                         {QUESTIONS.map((_, i) => (
@@ -281,8 +281,8 @@ export default function TreatmentQuiz() {
 
           <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
             <div className="space-y-2">
-              <div className="text-teal-600 font-bold text-2xl">100%</div>
-              <div className="text-xs font-bold uppercase tracking-widest text-slate-400">Personalized</div>
+              <div className="text-teal-600 font-bold text-2xl">MD-Led</div>
+              <div className="text-xs font-bold uppercase tracking-widest text-slate-400">Consultations</div>
             </div>
             <div className="space-y-2">
               <div className="text-teal-600 font-bold text-2xl">2 Mins</div>
