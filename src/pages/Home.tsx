@@ -1,4 +1,5 @@
 import Hero from "../components/sections/Hero";
+import WhySeeASurgeon from "../components/sections/WhySeeASurgeon";
 import OutcomePathways from "../components/sections/OutcomePathways";
 import ProcessSection from "../components/sections/ProcessSection";
 import TrustSection from "../components/sections/TrustSection";
@@ -21,6 +22,7 @@ export default function Home() {
       <meta name="description" content="Non-surgical, physician-led orthopedic care in Westminster, CO. Explore options like PRP and orthobiologics for joint and tendon conditions at Summit Regenerative Orthopedics." />
       
       <Hero />
+      <WhySeeASurgeon />
       <OutcomePathways />
       <ProcessSection />
       <TrustSection />

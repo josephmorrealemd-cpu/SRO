@@ -1,4 +1,5 @@
 import { BookingDialog } from "../components/ui/BookingDialog";
+import WhySeeASurgeon from "../components/sections/WhySeeASurgeon";
 import { motion } from "motion/react";
 import { Link } from "react-router-dom";
 export default function EducationPage() {
@@ -49,6 +50,8 @@ export default function EducationPage() {
             />
           </div>
         </div>
+
+        <WhySeeASurgeon embedded />
 
         {/* Patient Funnel Tools Section */}
         <div className="mt-16 p-8 md:p-12 rounded-[40px] bg-teal-900 text-white shadow-xl relative overflow-hidden">
