@@ -36,7 +36,7 @@ const QUESTIONS: Question[] = [
     id: 3,
     text: "What is your primary goal for treatment?",
     options: [
-      { text: "Avoid surgery at all costs", value: "avoid_surgery" },
+      { text: "Explore non-surgical options before surgery", value: "avoid_surgery" },
       { text: "Return to high-impact sports", value: "sports" },
       { text: "Daily pain management", value: "pain" },
       { text: "Improve overall mobility", value: "mobility" },
@@ -116,7 +116,7 @@ export default function TreatmentQuiz() {
     // Fallback: Wharton's Jelly + Exosomes
     return {
       title: "Biologics-First Restoration",
-      description: "Based on your clinical profile, a biologics-first approach using Wharton's Jelly structural cushioning and Exosome signaling provides the best outcome to avoid surgery and protect joint longevity.",
+      description: "Based on your clinical profile, a biologics-first approach using Wharton's Jelly structural cushioning and Exosome signaling is one non-surgical option we may discuss for supporting joint health.",
       treatment: "Wharton's Jelly + Exosomes Protocol",
       nextStep: "Book Consultation",
       badge: "Non-Surgical Cartilage Preservation"

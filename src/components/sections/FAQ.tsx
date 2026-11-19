@@ -8,8 +8,8 @@ const FAQS = [
     answer: "Regenerative medicine is a field of medicine that focuses on repairing, replacing, or regenerating human cells, tissues, or organs to restore or establish normal function. We use advanced therapies like PRP and Wharton's Jelly to facilitate your journey back to optimal health."
   },
   {
-    question: "Is this treatment safe?",
-    answer: "Yes, our treatments prioritize your comfort through non-invasive methods. We use state-of-the-art, minimally invasive techniques to enhance recovery and improve long-term outcomes with minimal discomfort."
+    question: "What should I know about treatment risks and safety?",
+    answer: "All medical procedures carry potential risks and considerations, which Dr. Morreale reviews with you in detail during your consultation. We perform minimally invasive, ultrasound-guided office procedures and discuss whether a given option is appropriate for your medical history."
   },
   {
     question: "How long is recovery?",

@@ -65,15 +65,15 @@ export default function WhartonsJellyScience() {
           </ol>
 
           <div className="bg-teal-50 border-l-4 border-teal-500 p-8 my-12 rounded-r-2xl">
-            <h3 className="text-teal-900 font-bold mb-2">Ethical and Safe</h3>
+            <h3 className="text-teal-900 font-bold mb-2">Tissue Sourcing &amp; Regulatory Standards</h3>
             <p className="text-teal-800 text-sm">
-              The Wharton's Jelly used at Summit is ethically sourced from healthy, full-term births and is rigorously screened and processed in FDA-compliant laboratories. It is a non-embryonic, safe, and highly effective regenerative option.
+              The Wharton's Jelly used at Summit is non-embryonic tissue sourced from a tissue bank that follows FDA Section 361 HCT/P regulations. During your consultation, Dr. Morreale can review whether this option fits your situation.
             </p>
           </div>
 
           <h2 className="text-2xl font-bold text-slate-900 mt-12 mb-6">Wharton's Jelly vs. Traditional Injections</h2>
           <p>
-            While traditional "gel shots" (hyaluronic acid) only provide lubrication, Wharton's Jelly provides both lubrication AND the structural proteins needed for repair. This makes it a far more robust option for patients with moderate-to-severe joint degeneration who are looking to avoid surgery.
+            While traditional "gel shots" (hyaluronic acid) only provide lubrication, Wharton's Jelly provides both lubrication AND structural proteins. This makes it an option we may discuss with patients managing moderate-to-severe joint degeneration who are hoping to delay or avoid surgery.
           </p>
         </div>
       </div>

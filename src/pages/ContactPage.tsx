@@ -10,7 +10,7 @@ export default function ContactPage() {
       className="pt-12 pb-24"
     >
       <title>Contact Us | Summit Regenerative Orthopedics | Westminster CO</title>
-      <meta name="description" content="Ready to avoid surgery? Contact Summit Regenerative Orthopedics in Westminster, CO today to schedule your personalized consultation." />
+      <meta name="description" content="Exploring non-surgical options? Contact Summit Regenerative Orthopedics in Westminster, CO for a physician-led consultation." />
       
       <div className="container mx-auto px-4 text-center mb-16">
         <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-4">Contact Our Team</h1>

@@ -121,7 +121,7 @@ export default function GuideDownload() {
             Biologic Regeneration 101
           </h1>
           <p className="text-base sm:text-lg text-slate-600">
-            A Board-Certified Orthopedic Surgeon's Guide to Wharton's Jelly, Exosomes, and PRP: How to Avoid Surgery and Restore Joint Cartilage.
+            A Board-Certified Orthopedic Surgeon's Educational Guide to Wharton's Jelly, Exosomes, and PRP: Exploring Non-Surgical Orthopedic Options.
           </p>
         </div>
 

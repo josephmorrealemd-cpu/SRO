@@ -24,9 +24,9 @@ export default function EducationPage() {
         <div className="flex flex-col md:flex-row items-center justify-between gap-12 bg-slate-50 p-8 md:p-16 rounded-[40px] border border-slate-100">
           <div className="max-w-xl space-y-6">
             <h2 className="text-sm font-bold text-teal-600 uppercase tracking-widest">Surgical Second Opinions</h2>
-            <h3 className="text-4xl font-bold tracking-tight">Avoid Unnecessary Surgery</h3>
+            <h3 className="text-4xl font-bold tracking-tight">Surgical Second Opinions</h3>
             <p className="text-slate-600 leading-relaxed">
-              Before you commit to a major orthopedic surgery, get an expert second opinion. We specialize in identifying patients who can achieve superior results through non-operative regenerative procedures like Wharton's Jelly and Exosome therapy.
+              Before committing to orthopedic surgery, schedule a consultation for a physician-led second opinion. We review your imaging and discuss whether non-operative options like PRP, Wharton's Jelly, or Exosome therapy may fit your situation.
             </p>
             <div className="flex gap-4">
               <BookingDialog 
@@ -57,7 +57,7 @@ export default function EducationPage() {
               <span className="text-xs font-bold uppercase tracking-widest text-teal-300">Free Patient Resources</span>
               <h3 className="text-3xl sm:text-4xl font-extrabold">Download The Comprehensive Biologics Guide</h3>
               <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
-                Download “Biologic Regeneration 101: Wharton’s Jelly, Exosomes, and PRP” by Dr. Joseph Morreale. Understand why cortisone breaks down cartilage, how structural allografts work, and how to avoid joint replacement.
+                Download “Biologic Regeneration 101: Wharton’s Jelly, Exosomes, and PRP” by Dr. Joseph Morreale. Learn about cortisone considerations, structural allografts, and non-surgical options to discuss during a consultation.
               </p>
             </div>
 

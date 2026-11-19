@@ -22,11 +22,11 @@ export default function KneePain() {
             Board-Certified Orthopedic Solutions
           </div>
           <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-8 leading-[1.1]">
-            Avoid Knee Surgery. <br />
-            <span className="text-teal-400">Restore Your Mobility.</span>
+            Exploring Non-Surgical <br />
+            <span className="text-teal-400">Knee Care Options.</span>
           </h1>
           <p className="text-xl text-slate-300 mb-12 max-w-2xl mx-auto leading-relaxed">
-            Advanced regenerative injections and non-surgical protocols designed by board-certified orthopedic surgeons to heal knee pain at the source.
+            Physician-led consultations and non-surgical orthopedic protocols evaluated by a board-certified orthopedic surgeon.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
             <BookingDialog 
@@ -57,10 +57,10 @@ export default function KneePain() {
               </p>
               <div className="space-y-4 pt-4">
                 {[
-                  "Avoid long hospital stays",
-                  "Minimal downtime vs. surgery",
-                  "Heal with your own biology",
-                  "Return to the activities you love"
+                  "Minimally invasive office procedures",
+                  "Less downtime than surgical recovery",
+                  "Autologous and biologic care options",
+                  "Personalized evaluation for your knee goals"
                 ].map((item) => (
                   <div key={item} className="flex items-center gap-3 text-slate-700 font-medium">
                     <CheckCircle2 className="w-5 h-5 text-teal-500" />
@@ -114,7 +114,7 @@ export default function KneePain() {
       {/* CTA Section */}
       <section className="py-24 bg-teal-600">
         <div className="container mx-auto px-4 text-center">
-          <h2 className="text-4xl md:text-6xl font-bold text-white mb-8">Ready to Avoid Surgery?</h2>
+          <h2 className="text-4xl md:text-6xl font-bold text-white mb-8">Interested in Non-Surgical Options?</h2>
           <p className="text-xl text-teal-100 mb-12 max-w-2xl mx-auto">
             Schedule a medical assessment with our board-certified team to see if you are a candidate for regenerative intervention.
           </p>

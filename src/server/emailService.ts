@@ -81,7 +81,7 @@ export const EMAIL_TEMPLATES: Record<EmailTemplateId, EmailTemplate> = {
       </div>
 
       <div style="text-align: center;">
-        <a href="https://summitregenerativeortho.com/pain-quiz" class="btn">Take the 2-Minute Pain Quiz</a>
+        <a href="https://summitregenortho.com/pain-quiz" class="btn">Take the 2-Minute Pain Quiz</a>
         <br>
         <span style="font-size: 13px; color: #64748b;">Or call our Westminster clinic directly at <a href="tel:7207769165" style="color: #0d9488; font-weight: 600;">(720) 776-9165</a></span>
       </div>
@@ -163,9 +163,9 @@ export const EMAIL_TEMPLATES: Record<EmailTemplateId, EmailTemplate> = {
             <td>Moderate-to-severe OA, cartilage thinning</td>
           </tr>
           <tr>
-            <td><strong>Need to Avoid Surgery</strong></td>
-            <td>Moderate success in severe OA</td>
-            <td>High potential to delay/avoid arthroplasty</td>
+            <td><strong>Surgical Consideration</strong></td>
+            <td>Typically discussed for mild-to-moderate tendon or joint concerns</td>
+            <td>Option discussed for patients hoping to delay or avoid surgery</td>
           </tr>
         </tbody>
       </table>
@@ -176,7 +176,7 @@ export const EMAIL_TEMPLATES: Record<EmailTemplateId, EmailTemplate> = {
       </div>
 
       <div style="text-align: center;">
-        <a href="https://summitregenerativeortho.com/biologics-decision" class="btn">Explore the Biologics Decision Tool</a>
+        <a href="https://summitregenortho.com/biologics-decision" class="btn">Explore the Biologics Decision Tool</a>
       </div>
     </div>
     <div class="footer">
@@ -239,7 +239,7 @@ export const EMAIL_TEMPLATES: Record<EmailTemplateId, EmailTemplate> = {
       </div>
 
       <div style="text-align: center;">
-        <a href="https://summitregenerativeortho.com/pain-quiz" class="btn">Check Your Treatment Compatibility</a>
+        <a href="https://summitregenortho.com/pain-quiz" class="btn">Check Your Treatment Compatibility</a>
         <br>
         <span style="font-size: 13px; color: #64748b;">Or schedule an athletic orthopedic consult at <a href="tel:7207769165" style="color: #0d9488; font-weight: 600;">(720) 776-9165</a></span>
       </div>
@@ -264,7 +264,7 @@ export async function sendNurtureEmail(
   }
 
   const resendApiKey = process.env.RESEND_API_KEY;
-  const senderEmail = process.env.SENDER_EMAIL || "consult@summitregenerativeortho.com";
+  const senderEmail = process.env.SENDER_EMAIL || "consult@summitregenortho.com";
 
   if (!resendApiKey) {
     console.log(`[Email Nurture Sequence] SIMULATED DISPATCH (${templateId}) to ${recipient.email} (${recipient.name}): "${template.subject}"`);
@@ -306,7 +306,7 @@ export async function sendAdminNotificationEmail(data: {
 }): Promise<{ success: boolean; simulated?: boolean; error?: string }> {
   const resendApiKey = process.env.RESEND_API_KEY;
   const adminEmails = ["team@watch1do1.com", "josephmorrealemd@gmail.com"];
-  const senderEmail = process.env.SENDER_EMAIL || "consult@summitregenerativeortho.com";
+  const senderEmail = process.env.SENDER_EMAIL || "consult@summitregenortho.com";
 
   if (!resendApiKey) {
     console.log(`[Admin Notification Alert] SIMULATED to ${adminEmails.join(", ")}: New ${data.type.toUpperCase()} from ${data.name} (${data.email || data.phone})`);

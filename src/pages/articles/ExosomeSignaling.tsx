@@ -59,7 +59,7 @@ export default function ExosomeSignaling() {
           </p>
           <ol className="list-decimal pl-6 space-y-4">
             <li><strong>Highly Concentrated:</strong> A single injection can contain billions of exosomes, providing a massive dose of signaling power.</li>
-            <li><strong>Extremely Safe:</strong> Because they are not cells, there is no risk of the exosomes developing into unwanted tissue types.</li>
+            <li><strong>Acellular Composition:</strong> Because exosomes are cell-free vesicles rather than whole living cells, your physician will review their specific characteristics, potential risks, and regulatory considerations during consultation.</li>
             <li><strong>Small and Efficient:</strong> Their tiny size allows them to easily penetrate deep into damaged tissue where larger cells might not be able to reach.</li>
           </ol>
 

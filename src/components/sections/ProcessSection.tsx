@@ -23,7 +23,7 @@ const steps = [
   },
   {
     title: "Monitoring & Tracking",
-    description: "Ongoing clinical oversight and optimization to ensure safety and performance.",
+    description: "Ongoing clinical oversight and follow-up to monitor your progress and response.",
     icon: LineChart,
     color: "emerald"
   }

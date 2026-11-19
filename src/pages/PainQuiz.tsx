@@ -117,7 +117,7 @@ export default function PainQuiz() {
           "Avoids the cartilage-degrading side effects of repetitive cortisone steroids",
           "One-session in-office procedure under dynamic ultrasound guidance"
         ],
-        evidenceNote: "Ethically sourced from full-term, pre-screened c-section births under rigorous FDA Section 361 cGMP safety standards."
+        evidenceNote: "Non-embryonic umbilical cord tissue sourced from a tissue bank that follows FDA Section 361 HCT/P regulations."
       };
     }
 
@@ -160,7 +160,7 @@ export default function PainQuiz() {
       title: "Comprehensive Biologics Protocol Candidate",
       treatment: "Wharton's Jelly + Exosomes Targeted Therapy",
       badge: "Non-Surgical Orthopedic Restoration",
-      rationale: "Based on your clinical profile, a biologics-first approach using Wharton's Jelly structural matrix and Exosome cellular signaling provides the highest likelihood of restoring joint function and avoiding invasive orthopedic surgery.",
+      rationale: "Based on your clinical profile, a biologics-first approach using Wharton's Jelly structural matrix and Exosome cellular signaling is one non-surgical option we may discuss for supporting joint health.",
       keyPoints: [
         "Addresses both physical joint space loss and chronic cellular inflammation",
         "Administered under direct ultrasound visualization by Dr. Morreale",
@@ -256,7 +256,7 @@ export default function PainQuiz() {
             Joint Pain & Biologics Assessment
           </h1>
           <p className="mt-2 text-base sm:text-lg text-slate-600 max-w-xl mx-auto">
-            Evaluate your joint wear, prior treatments, and discover personalized regenerative protocols to avoid surgery.
+            Evaluate your joint wear, prior treatments, and explore personalized, non-surgical treatment plans.
           </p>
 
           {/* Progress bar */}
@@ -605,7 +605,7 @@ export default function PainQuiz() {
                   {[
                     { id: "Recommended for joint replacement", title: "Told I Need Total Joint Replacement", desc: "Surgeon advised knee, hip, or shoulder arthroplasty" },
                     { id: "Told surgery is only option left", title: "Told Surgery is the Only Option Left", desc: "No other non-surgical pathways were offered" },
-                    { id: "Seeking second opinion to avoid surgery", title: "Actively Seeking Second Opinion to Avoid Surgery", desc: "Want an expert non-surgical orthopedic evaluation first" },
+                    { id: "Seeking second opinion to avoid surgery", title: "Seeking a Second Opinion Before Surgery", desc: "Want an expert non-surgical orthopedic evaluation first" },
                     { id: "Want non-surgical first-line treatment", title: "Prefer Non-Surgical Regenerative Care", desc: "Surgery has not been formally scheduled or discussed yet" },
                   ].map((s) => (
                     <button
@@ -669,7 +669,7 @@ export default function PainQuiz() {
                     {[
                       "Return to athletic sports / training",
                       "Walk, hike, and enjoy daily life pain-free",
-                      "Avoid surgery downtime & joint replacement",
+                      "Explore non-surgical options to delay or avoid surgery",
                       "Prolong natural cartilage health long-term",
                     ].map((g) => (
                       <button

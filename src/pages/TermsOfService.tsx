@@ -71,7 +71,7 @@ export default function TermsOfService() {
               2. Interactive Pain Quizzes & Biologics Assessment
             </h2>
             <p className="text-sm text-slate-600 leading-relaxed">
-              Our website includes an interactive &quot;Avoid Surgery&quot; pain assessment tool designed to help patients understand common indications for non-surgical regenerative biologics. 
+              Our website includes an interactive pain assessment tool designed to help patients explore non-surgical orthopedic options. 
             </p>
             <ul className="space-y-2 text-sm text-slate-600 list-disc list-inside pl-2">
               <li>Quiz outcomes represent non-binding preliminary information only.</li>

@@ -58,7 +58,7 @@ const SCENARIOS: Record<ScenarioId, ScenarioData> = {
       scaffolding: "High (3D extracellular matrix + structural collagen)",
       signaling: "Ultra-High (exosome microRNA + cytokines)",
       downtime: "None (walk out immediately, resumption of daily life)",
-      surgeryAvoidance: "Primary clinical objective: delay or completely avoid arthroplasty",
+      surgeryAvoidance: "Discussed as an option for patients hoping to delay or avoid surgery",
     },
     whyItWorks: [
       "Natural high-molecular-weight hyaluronic acid restores synovial joint cushioning",
@@ -86,7 +86,7 @@ const SCENARIOS: Record<ScenarioId, ScenarioData> = {
       "No general anesthesia, crutches, or lengthy surgical recovery time",
       "Direct cellular instruction: directs native cells to deposit organized Type I collagen",
       "Deep-tissue class IV MSK laser accelerates tissue microcirculation and lymphatic drainage",
-      "Safe for active competitors seeking to maintain their competitive edge"
+      "Designed as a non-surgical option for active competitors to discuss with their physician"
     ]
   },
   post_surgical: {

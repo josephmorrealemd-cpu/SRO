@@ -45,7 +45,7 @@ export default function UnderstandingPRP() {
 
           <h2 className="text-2xl font-bold text-slate-900 mt-12 mb-6">How the Process Works</h2>
           <p>
-            The beauty of PRP lies in its simplicity and safety. Because it is derived from your own blood, there is virtually no risk of rejection or allergic reaction. The process typically follows three steps:
+            Because PRP is autologous—derived from your own blood—it avoids donor-tissue rejection risks, though as with any injection, potential procedural risks are reviewed during consultation. The process typically follows three steps:
           </p>
           <ol className="list-decimal pl-6 space-y-4">
             <li><strong>The Draw:</strong> A small amount of blood is taken from your arm, similar to a standard blood test.</li>

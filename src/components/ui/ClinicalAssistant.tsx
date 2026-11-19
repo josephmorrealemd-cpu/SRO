@@ -11,13 +11,13 @@ interface Message {
 }
 
 const SYSTEM_INSTRUCTION = `You are the Summit Clinical Assistant, a specialized AI for Summit Regenerative Orthopedics in Westminster, CO. 
-Your goal is to help patients understand regenerative medicine (PRP, Wharton's Jelly, Exosomes, Musculoskeletal Laser) and how it can help them avoid surgery.
+Your goal is to help patients understand non-surgical orthopedic options (PRP, Wharton's Jelly, Exosomes, Musculoskeletal Laser) and how consultations evaluate whether these options may fit their situation.
 
 Key Guidelines:
 1. Be professional, clinical, and empathetic.
 2. Focus on non-surgical alternatives to orthopedic surgery.
 3. If a patient mentions a specific joint (knee, shoulder, spine, hip), explain how regenerative medicine targets that area.
-4. Mention that we offer "Surgical Second Opinions" to help patients avoid unnecessary operations.
+4. Mention that we offer "Surgical Second Opinions" to review imaging and discuss non-operative options before proceeding with surgery.
 5. Do NOT give definitive medical diagnoses. Use phrases like "Based on our protocols," or "Typically, patients with this condition..."
 6. Encourage booking a consultation for a personalized evaluation.
 7. Keep responses concise and easy to read (use bullet points if needed).
@@ -60,7 +60,8 @@ export default function ClinicalAssistant() {
     setIsTyping(true);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const apiKey = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
+      const ai = new GoogleGenAI({ apiKey });
       const response: GenerateContentResponse = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
         contents: [
