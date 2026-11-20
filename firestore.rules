@@ -47,16 +47,12 @@ service cloud.firestore {
     // Helper Functions
     // ===============================================================
     
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
     function isAdmin() {
-      return isAuthenticated() &&
-        (request.auth.token.email == "team@watch1do1.com" ||
-         request.auth.token.email == "josephmorrealemd@gmail.com" ||
-         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.firebase.sign_in_provider == 'google.com'
+        && request.auth.token.email in ['josephmorrealemd@gmail.com']
+        && request.time < timestamp.value(request.auth.token.auth_time * 1000 + 43200000);
     }
 
     function isValidEmail(email) {
@@ -75,7 +71,7 @@ service cloud.firestore {
 
     function isValidBooking(data) {
       return data.keys().hasAll(['name', 'email', 'phone', 'date', 'type', 'createdAt', 'status']) &&
-        data.keys().hasOnly(['name', 'email', 'phone', 'date', 'type', 'createdAt', 'condition', 'status', 'reportName', 'reportUrl']) &&
+        data.keys().hasOnly(['name', 'email', 'phone', 'date', 'type', 'createdAt', 'condition', 'status', 'reportName', 'reportPath']) &&
         data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
         isValidEmail(data.email) &&
         data.phone is string && data.phone.size() <= 35 &&
@@ -84,7 +80,7 @@ service cloud.firestore {
         data.status in ['pending', 'confirmed', 'cancelled'] &&
         data.createdAt is timestamp &&
         (!('reportName' in data) || (data.reportName is string && data.reportName.size() <= 255)) &&
-        (!('reportUrl' in data) || (data.reportUrl is string && data.reportUrl.size() <= 1000));
+        (!('reportPath' in data) || (data.reportPath is string && data.reportPath.size() <= 300));
     }
 
     function isValidContactMessage(data) {
@@ -167,10 +163,7 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
-      allow create: if isAuthenticated() && (request.auth.uid == userId && request.resource.data.role == 'client') || isAdmin();
-      allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow read, write: if isAdmin();
     }
 
     match /analytics_events/{eventId} {
@@ -204,10 +197,6 @@ service cloud.firestore {
       allow read: if isAdmin();
       allow create: if isValidGuideDownload(request.resource.data);
       allow update, delete: if isAdmin();
-    }
-
-    match /test/{docId} {
-      allow read: if true;
     }
 
     // Default deny

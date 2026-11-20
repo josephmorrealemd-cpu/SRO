@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Info, X, Activity, ChevronRight, Sparkles, RefreshCw } from "lucide-react";
 import { collection, doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
+import { isVerifiedAdminUser } from "@/lib/admins";
 import { BookingDialog } from "../ui/BookingDialog";
 import { toast } from "sonner";
 
@@ -97,8 +98,7 @@ export default function InteractiveBody() {
     // Fetch the daily hologram once on load
     const fetchHologram = async () => {
       try {
-        const userEmail = auth.currentUser?.email;
-        const isAdmin = userEmail === "team@watch1do1.com" || userEmail === "josephmorrealemd@gmail.com";
+        const isAdmin = await isVerifiedAdminUser(auth.currentUser);
 
         const docRef = doc(db, "app_state", "hologram");
         const snapshot = await getDoc(docRef);

@@ -12,10 +12,14 @@ import {
   updateDoc,
   serverTimestamp
 } from "firebase/firestore";
-import { db, auth, handleFirestoreError, OperationType } from "@/lib/firebase";
+import { db, auth, storage, handleFirestoreError, OperationType } from "@/lib/firebase";
+import { ref, getDownloadURL } from "firebase/storage";
+import {
+  isVerifiedAdminUser,
+  signInAdminWithGoogle,
+  watchAdminIdleTimeout,
+} from "@/lib/admins";
 import { 
-  signInWithPopup, 
-  GoogleAuthProvider, 
   signOut, 
   onAuthStateChanged, 
   User 
@@ -93,6 +97,7 @@ interface Booking {
   type: string;
   status: "pending" | "confirmed" | "cancelled";
   reportName?: string;
+  reportPath?: string;
   reportUrl?: string;
   createdAt: any;
 }
@@ -283,15 +288,24 @@ export default function AdminDashboard() {
       });
     }, 4000);
 
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      console.log("onAuthStateChanged callback triggered. User details:", u ? { email: u.email, uid: u.uid } : "No active session");
-      setUser(u);
-      if (u) {
-        const adminCheck = u.email === "team@watch1do1.com" || u.email === "josephmorrealemd@gmail.com";
-        console.log(`Checking admin privileges for ${u.email}: ${adminCheck ? "ADMIN" : "NOT ADMIN"}`);
-        setIsAdmin(adminCheck);
-      } else {
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
+      if (!u) {
+        setUser(null);
         setIsAdmin(false);
+        setLoading(false);
+        clearTimeout(timer);
+        return;
+      }
+
+      const verified = await isVerifiedAdminUser(u);
+      if (verified) {
+        setUser(u);
+        setIsAdmin(true);
+      } else {
+        await signOut(auth).catch(() => {});
+        setUser(null);
+        setIsAdmin(false);
+        toast.error("Please sign in with the authorized Google admin account.");
       }
       setLoading(false);
       clearTimeout(timer);
@@ -302,6 +316,16 @@ export default function AdminDashboard() {
       clearTimeout(timer);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    return watchAdminIdleTimeout(async () => {
+      await signOut(auth).catch(() => {});
+      setUser(null);
+      setIsAdmin(false);
+      toast.info("Signed out after 30 minutes of inactivity.");
+    });
+  }, [isAdmin]);
 
   const fetchAllData = async () => {
     // 1. Fetch from server-side unified inbox endpoint if available
@@ -460,9 +484,11 @@ export default function AdminDashboard() {
 
   const handleLogin = async () => {
     try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-      toast.success("Logged in successfully");
+      const result = await signInAdminWithGoogle(auth);
+      const verified = await isVerifiedAdminUser(result.user);
+      if (verified) {
+        toast.success("Logged in successfully");
+      }
     } catch (error) {
       console.error("Login error:", error);
       toast.error("Failed to login");
@@ -530,6 +556,20 @@ export default function AdminDashboard() {
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, "bookings");
       toast.error("Failed to update status");
+    }
+  };
+
+  const handleOpenReport = async (booking: Booking) => {
+    try {
+      if (booking.reportPath) {
+        const url = await getDownloadURL(ref(storage, booking.reportPath));
+        window.open(url, "_blank");
+      } else if (booking.reportUrl) {
+        window.open(booking.reportUrl, "_blank");
+      }
+    } catch (error) {
+      console.error("Failed to open report:", error);
+      toast.error("Failed to open report file");
     }
   };
 
@@ -986,12 +1026,12 @@ export default function AdminDashboard() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-2">
-                            {b.reportUrl && (
+                            {(b.reportPath || b.reportUrl) && (
                               <Button 
                                 variant="ghost" 
                                 size="icon" 
                                 className="text-teal-600 hover:text-teal-700 hover:bg-teal-50 rounded-lg"
-                                onClick={() => window.open(b.reportUrl, '_blank')}
+                                onClick={() => handleOpenReport(b)}
                                 title="View/Download File"
                               >
                                 <Download className="w-4 h-4" />

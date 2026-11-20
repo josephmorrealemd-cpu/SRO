@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import { Calendar, Send } from "lucide-react";
 import { db, storage, handleFirestoreError, OperationType } from "@/lib/firebase";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytes } from "firebase/storage";
 
 interface BookingDialogProps {
   trigger: React.ReactElement;
@@ -52,13 +52,15 @@ export function BookingDialog({
       const phone = formData.get("phone") as string;
       const date = formData.get("date") as string;
       
-      let reportUrl = "";
+      let reportPath = "";
       let reportName = "No file uploaded";
 
       if (selectedFile) {
-        const storageRef = ref(storage, `reports/${Date.now()}_${selectedFile.name}`);
-        const snapshot = await uploadBytes(storageRef, selectedFile);
-        reportUrl = await getDownloadURL(snapshot.ref);
+        const sanitizedFilename =
+          selectedFile.name.replace(/[^A-Za-z0-9._-]/g, "_").slice(-200) || "report";
+        reportPath = `reports/${Date.now()}_${sanitizedFilename}`;
+        const storageRef = ref(storage, reportPath);
+        await uploadBytes(storageRef, selectedFile);
         reportName = selectedFile.name;
       }
 
@@ -68,7 +70,7 @@ export function BookingDialog({
         phone,
         date,
         reportName,
-        reportUrl,
+        reportPath,
         type: title,
         status: "pending",
         createdAt: serverTimestamp(),

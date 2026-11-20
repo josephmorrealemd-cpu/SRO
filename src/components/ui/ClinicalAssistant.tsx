@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { MessageSquare, X, Send, Sparkles, Activity, ShieldCheck, RefreshCw, User, Bot } from "lucide-react";
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { cn } from "@/lib/utils";
 
 interface Message {
@@ -9,21 +8,6 @@ interface Message {
   text: string;
   timestamp: Date;
 }
-
-const SYSTEM_INSTRUCTION = `You are the Summit Clinical Assistant, a specialized AI for Summit Regenerative Orthopedics in Westminster, CO. 
-Your goal is to help patients understand non-surgical orthopedic options (PRP, Wharton's Jelly, Exosomes, Musculoskeletal Laser) and how consultations evaluate whether these options may fit their situation.
-
-Key Guidelines:
-1. Be professional, clinical, and empathetic.
-2. Focus on non-surgical alternatives to orthopedic surgery.
-3. If a patient mentions a specific joint (knee, shoulder, spine, hip), explain how regenerative medicine targets that area.
-4. Mention that we offer "Surgical Second Opinions" to review imaging and discuss non-operative options before proceeding with surgery.
-5. Do NOT give definitive medical diagnoses. Use phrases like "Based on our protocols," or "Typically, patients with this condition..."
-6. Encourage booking a consultation for a personalized evaluation.
-7. Keep responses concise and easy to read (use bullet points if needed).
-8. The practice phone number is 720-776-9165.
-
-Tone: High-end, medical, authoritative yet approachable.`;
 
 export default function ClinicalAssistant() {
   const [isOpen, setIsOpen] = useState(false);
@@ -55,30 +39,33 @@ export default function ClinicalAssistant() {
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+    const nextMessages = [...messages, userMessage];
+    setMessages(nextMessages);
     setInput("");
     setIsTyping(true);
 
     try {
-      const apiKey = process.env.GEMINI_API_KEY || import.meta.env.VITE_GEMINI_API_KEY;
-      const ai = new GoogleGenAI({ apiKey });
-      const response: GenerateContentResponse = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: [
-          ...messages.map((m) => ({
-            role: m.role === "bot" ? "model" : "user",
-            parts: [{ text: m.text }],
-          })),
-          { role: "user", parts: [{ text: input }] },
-        ],
-        config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({
+          messages: nextMessages.map((m) => ({
+            role: m.role,
+            text: m.text,
+          })),
+        }),
       });
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to connect to assistant");
+      }
 
       const botMessage: Message = {
         role: "bot",
-        text: response.text || "I'm sorry, I couldn't process that. Please try again or call our office directly.",
+        text: data.reply || "I'm sorry, I couldn't process that. Please try again or call our office directly.",
         timestamp: new Date(),
       };
 
@@ -208,7 +195,10 @@ export default function ClinicalAssistant() {
                   <Send className="w-4 h-4" />
                 </button>
               </div>
-              <div className="flex items-center justify-center gap-2 mt-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              <p className="mt-2.5 text-[11px] leading-snug text-slate-500 text-center">
+                Please don't share personal health details here. For medical questions, call 720-776-9165.
+              </p>
+              <div className="flex items-center justify-center gap-2 mt-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                 <Sparkles className="w-3 h-3 text-teal-500" />
                 Powered by Summit Clinical AI
               </div>

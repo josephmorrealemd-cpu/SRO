@@ -17,7 +17,6 @@ import ExosomeSignaling from "./pages/articles/ExosomeSignaling";
 import KneePain from "./pages/programs/KneePain";
 import WeightLoss from "./pages/programs/WeightLoss";
 import Performance from "./pages/programs/Performance";
-import ImageGenerator from "./pages/ImageGenerator";
 import PainQuiz from "./pages/PainQuiz";
 import BiologicsDecision from "./pages/BiologicsDecision";
 import GuideDownload from "./pages/GuideDownload";
@@ -79,7 +78,6 @@ export default function App() {
           <Route path="/education/whartons-jelly-science" element={<WhartonsJellyScience />} />
           <Route path="/education/exosome-signaling" element={<ExosomeSignaling />} />
           <Route path="/contact" element={<ContactPage />} />
-          <Route path="/image-generator" element={<ImageGenerator />} />
           
           {/* Patient Funnel Routes */}
           <Route path="/pain-quiz" element={<PainQuiz />} />
