@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Info, X, Activity, ChevronRight, Sparkles } from "lucide-react";
 import { BookingDialog } from "../ui/BookingDialog";
-import SkeletonFigure from "./SkeletonFigure";
 
 interface BodyPart {
   id: string;
@@ -18,8 +17,8 @@ const BODY_PARTS: BodyPart[] = [
   {
     id: "shoulder",
     name: "Shoulder",
-    x: "32%",
-    y: "22%",
+    x: "35.9%",
+    y: "24.2%",
     conditions: ["Rotator Cuff Tears", "Shoulder Impingement", "Labral Tears", "Arthritis"],
     treatments: ["PRP Therapy", "Exosome Therapy", "Musculoskeletal Laser"],
     description: "The shoulder is a complex ball-and-socket joint. We specialize in non-surgical repair of tendon and labral injuries."
@@ -27,8 +26,8 @@ const BODY_PARTS: BodyPart[] = [
   {
     id: "elbow",
     name: "Elbow",
-    x: "22%",
-    y: "35%",
+    x: "30.0%",
+    y: "37.7%",
     conditions: ["Tennis Elbow", "Golfer's Elbow", "UCL Injuries"],
     treatments: ["PRP Injections", "Laser Therapy", "Regenerative Medicine"],
     description: "Repetitive strain often leads to chronic elbow pain. Our regenerative approach targets the root cause of tendonitis."
@@ -36,8 +35,8 @@ const BODY_PARTS: BodyPart[] = [
   {
     id: "spine",
     name: "Spine",
-    x: "50%",
-    y: "30%",
+    x: "49.5%",
+    y: "33.4%",
     conditions: ["Herniated Discs", "Degenerative Disc Disease", "Facet Joint Pain"],
     treatments: ["Epidural PRP", "Exosome Therapy", "Non-Surgical Decompression"],
     description: "Back pain can be debilitating. We offer targeted regenerative injections to reduce inflammation and promote disc health."
@@ -45,8 +44,8 @@ const BODY_PARTS: BodyPart[] = [
   {
     id: "hip",
     name: "Hip",
-    x: "42%",
-    y: "48%",
+    x: "42.2%",
+    y: "48.4%",
     conditions: ["Hip Arthritis", "Labral Tears", "Bursitis"],
     treatments: ["Wharton's Jelly", "Exosomes", "PRP Therapy"],
     description: "Hip pain often limits mobility. Our advanced cellular therapies can help delay or avoid total hip replacement."
@@ -54,8 +53,8 @@ const BODY_PARTS: BodyPart[] = [
   {
     id: "knee",
     name: "Knee",
-    x: "42%",
-    y: "72%",
+    x: "38.8%",
+    y: "66.1%",
     conditions: ["Meniscus Tears", "ACL/MCL Strains", "Osteoarthritis"],
     treatments: ["Wharton's Jelly", "PRP Therapy", "Laser Therapy"],
     description: "The knee is our most treated joint. We provide comprehensive alternatives to knee replacement surgery."
@@ -63,8 +62,8 @@ const BODY_PARTS: BodyPart[] = [
   {
     id: "ankle",
     name: "Ankle & Foot",
-    x: "44%",
-    y: "92%",
+    x: "41.6%",
+    y: "85.4%",
     conditions: ["Plantar Fasciitis", "Achilles Tendonitis", "Ankle Sprains"],
     treatments: ["PRP Therapy", "Laser Therapy", "Regenerative Injections"],
     description: "Foot and ankle injuries can keep you off your feet. We accelerate healing for chronic ligament and tendon issues."
@@ -72,8 +71,8 @@ const BODY_PARTS: BodyPart[] = [
   {
     id: "wrist",
     name: "Wrist & Hand",
-    x: "15%",
-    y: "48%",
+    x: "22.5%",
+    y: "47.8%",
     conditions: ["Carpal Tunnel", "Thumb Arthritis", "Trigger Finger"],
     treatments: ["PRP Therapy", "Laser Therapy"],
     description: "Hand function is vital. We treat degenerative changes and nerve entrapment with minimally invasive regenerative options."
@@ -99,24 +98,26 @@ export default function InteractiveBody() {
 
         <div className="flex flex-col lg:flex-row items-center justify-center gap-12 lg:gap-24">
           {/* Body Visualization */}
-          <div className="relative w-full max-w-[450px] aspect-[1/2] bg-slate-950 rounded-[40px] shadow-2xl border border-slate-800 p-4 flex items-center justify-center overflow-hidden group/body">
-            {/* Background Effects */}
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(20,184,166,0.15),transparent_70%)]" />
-            
+          <div className="relative w-full max-w-[450px] aspect-[1/2] bg-[#021433] rounded-[40px] shadow-2xl border border-slate-800 p-4 flex items-center justify-center overflow-hidden group/body">
+            {/* Holographic body (1:2 crop; joints mapped to hotspot percentages) */}
+            <img
+              src="/images/hologram-anatomy.webp"
+              alt="Holographic illustration of the human body and skeleton"
+              className="absolute inset-0 w-full h-full object-cover object-center pointer-events-none select-none z-[1]"
+            />
+
+            {/* Soft edge blend into the navy card */}
+            <div className="absolute inset-0 z-[2] pointer-events-none bg-[radial-gradient(ellipse_at_center,transparent_58%,rgba(2,20,51,0.55)_100%)]" />
+
             {/* Holographic Grid Overlay */}
-            <div className="absolute inset-0 bg-[linear-gradient(rgba(20,184,166,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(20,184,166,0.1)_1px,transparent_1px)] bg-[size:30px_30px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_80%)] pointer-events-none" />
+            <div className="absolute inset-0 z-[3] bg-[linear-gradient(rgba(56,189,248,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(56,189,248,0.07)_1px,transparent_1px)] bg-[size:30px_30px] [mask-image:radial-gradient(ellipse_at_center,black,transparent_80%)] pointer-events-none" />
             
             {/* Scanning Line Animation */}
             <motion.div 
               animate={{ top: ["-10%", "110%"] }}
               transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-              className="absolute left-0 right-0 h-[2px] bg-teal-400/60 shadow-[0_0_20px_rgba(45,212,191,0.8)] z-10 pointer-events-none"
+              className="absolute left-0 right-0 h-[2px] bg-sky-400/50 shadow-[0_0_20px_rgba(56,189,248,0.7)] z-10 pointer-events-none"
             />
-
-            {/* Static holographic skeleton (coordinates match hotspot percentages) */}
-            <div className="absolute inset-0 pointer-events-none z-[1]">
-              <SkeletonFigure className="w-full h-full" />
-            </div>
 
             {/* Pulsing Glow Background */}
             <motion.div 
