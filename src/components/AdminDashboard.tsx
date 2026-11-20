@@ -6,11 +6,9 @@ import {
   query, 
   orderBy, 
   onSnapshot, 
-  Timestamp,
   deleteDoc,
   doc,
-  updateDoc,
-  serverTimestamp
+  updateDoc
 } from "firebase/firestore";
 import { db, auth, storage, handleFirestoreError, OperationType } from "@/lib/firebase";
 import { ref, getDownloadURL } from "firebase/storage";
@@ -210,10 +208,6 @@ export default function AdminDashboard() {
     window.location.href = window.location.pathname + '?v=' + Date.now();
   };
   
-  // Hologram State
-  const [currentHologram, setCurrentHologram] = useState<{ url: string, lastUpdated: any, lastAttempt: any } | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-
   const handlePrint = (data: Booking | ContactMessage, type: 'booking' | 'message') => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
@@ -346,7 +340,7 @@ export default function AdminDashboard() {
 
     // 2. Client-side Firestore collection fetching with independent safety blocks
     try {
-      const { getDocs, collection, doc, getDoc } = await import("firebase/firestore");
+      const { getDocs, collection } = await import("firebase/firestore");
       
       try {
         const mSnapshot = await getDocs(collection(db, "contact_messages"));
@@ -415,18 +409,6 @@ export default function AdminDashboard() {
       try {
         const sSnapshot = await getDocs(collection(db, "active_sessions"));
         setActiveSessions(sSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as ActiveSession)));
-      } catch (e) {}
-
-      try {
-        const hSnapshot = await getDoc(doc(db, "app_state", "hologram"));
-        if (hSnapshot.exists()) {
-          const data = hSnapshot.data();
-          setCurrentHologram({
-            url: data.hologramUrl,
-            lastUpdated: data.lastHologramUpdate,
-            lastAttempt: data.lastAttemptAt
-          });
-        }
       } catch (e) {}
     } catch (error) {
       console.error("Admin data fetch error:", error);
@@ -570,54 +552,6 @@ export default function AdminDashboard() {
     } catch (error) {
       console.error("Failed to open report:", error);
       toast.error("Failed to open report file");
-    }
-  };
-
-  const generateHologram = async () => {
-    setIsGenerating(true);
-    try {
-      const response = await fetch("/api/generate-hologram", {
-        method: "POST",
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to generate hologram");
-      }
-
-      const { imageUrl } = await response.json();
-
-      if (imageUrl) {
-        try {
-          const { setDoc } = await import("firebase/firestore");
-          await setDoc(doc(db, "app_state", "hologram"), {
-            hologramUrl: imageUrl,
-            lastHologramUpdate: serverTimestamp()
-          }, { merge: true });
-          
-          setCurrentHologram(prev => ({
-            ...prev!,
-            url: imageUrl,
-            lastUpdated: Timestamp.now()
-          }));
-          
-          toast.success("Daily hologram updated successfully");
-        } catch (dbError) {
-          console.error("Error saving to Firestore:", dbError);
-          toast.error("Hologram generated but failed to save to database.");
-        }
-      } else {
-        toast.error("AI failed to return an image.");
-      }
-    } catch (error: any) {
-      console.error("Failed to generate hologram:", error);
-      if (error?.message?.includes("429") || error?.message?.includes("quota")) {
-        toast.error("AI Quota exceeded.");
-      } else {
-        toast.error("AI Generation failed.");
-      }
-    } finally {
-      setIsGenerating(false);
     }
   };
 
@@ -940,13 +874,6 @@ export default function AdminDashboard() {
               >
                 <Activity className="w-3.5 h-3.5" />
                 Analytics
-              </TabsTrigger>
-              <TabsTrigger 
-                value="hologram" 
-                className="rounded-xl px-4 py-2.5 text-xs font-semibold data-[state=active]:bg-slate-900 data-[state=active]:text-white flex items-center gap-1.5 transition-all shadow-xs"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                Hologram
               </TabsTrigger>
             </TabsList>
 
@@ -1611,118 +1538,6 @@ export default function AdminDashboard() {
             </div>
           </TabsContent>
 
-          <TabsContent value="hologram">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <Card className="rounded-2xl border-slate-200 overflow-hidden">
-                <CardHeader className="border-b border-slate-100 bg-slate-50/50">
-                  <CardTitle className="text-lg font-bold flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-teal-600" />
-                    Current Daily Hologram
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-8">
-                  <div className="aspect-[9/16] max-w-[300px] mx-auto bg-slate-950 rounded-3xl border border-slate-800 relative overflow-hidden flex items-center justify-center shadow-2xl">
-                    {currentHologram?.url ? (
-                      <img 
-                        src={currentHologram.url} 
-                        alt="Current Daily Hologram" 
-                        className="w-full h-full object-contain opacity-90"
-                        style={{
-                          filter: "hue-rotate(160deg) brightness(1.2) contrast(1.1) drop-shadow(0 0 15px rgba(20, 184, 166, 0.4))"
-                        }}
-                      />
-                    ) : (
-                      <div className="text-slate-500 text-center p-8">
-                        <Activity className="w-12 h-12 mx-auto mb-4 opacity-20" />
-                        <p className="text-sm">No hologram generated yet.</p>
-                      </div>
-                    )}
-                    <motion.div 
-                      animate={{ top: ["-10%", "110%"] }}
-                      transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
-                      className="absolute left-0 right-0 h-[2px] bg-teal-400/60 shadow-[0_0_20px_rgba(45,212,191,0.8)] z-10 pointer-events-none"
-                    />
-                  </div>
-
-                  <div className="mt-8 p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-slate-500">Last Successful Update:</span>
-                      <span className="font-bold text-slate-900">
-                        {currentHologram?.lastUpdated?.toDate ? currentHologram.lastUpdated.toDate().toLocaleString() : "Never"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-slate-500">Last AI Attempt:</span>
-                      <span className="font-bold text-slate-900">
-                        {currentHologram?.lastAttempt?.toDate ? currentHologram.lastAttempt.toDate().toLocaleString() : "None"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-slate-500">Status:</span>
-                      <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 h-5 text-[10px]">
-                        ACTIVE
-                      </Badge>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="rounded-2xl border-slate-200">
-                <CardHeader>
-                  <CardTitle className="text-lg font-bold flex items-center gap-2">
-                    <RefreshCw className="w-5 h-5 text-teal-600" />
-                    Hologram Controls
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="p-6 bg-teal-50 rounded-2xl border border-teal-100 space-y-4">
-                    <h4 className="font-bold text-teal-900">Manual Regeneration</h4>
-                    <p className="text-sm text-teal-700 leading-relaxed">
-                      If the current AI-generated image is incorrect or low quality, you can manually trigger a new generation. This will update the image for all patients immediately.
-                    </p>
-                    <Button 
-                      onClick={generateHologram}
-                      disabled={isGenerating}
-                      className="w-full bg-teal-600 hover:bg-teal-700 text-white rounded-xl h-12 font-bold shadow-lg shadow-teal-600/20"
-                    >
-                      {isGenerating ? (
-                        <>
-                          <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                          Generating New Hologram...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-4 h-4 mr-2" />
-                          Regenerate Daily Hologram
-                        </>
-                      )}
-                    </Button>
-                  </div>
-
-                  <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
-                    <h4 className="font-bold text-slate-900">Automation Settings</h4>
-                    <div className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-200">
-                      <div className="space-y-1">
-                        <p className="text-sm font-bold text-slate-900">Daily Refresh</p>
-                        <p className="text-xs text-slate-500">Automatically refresh at midnight</p>
-                      </div>
-                      <Badge className="bg-teal-500 text-white">ENABLED</Badge>
-                    </div>
-                    <p className="text-[10px] text-slate-400 italic">
-                      Note: Daily refresh is handled by the first visitor of the day to optimize API costs.
-                    </p>
-                  </div>
-
-                  <div className="space-y-3">
-                    <h5 className="text-xs font-bold text-slate-400 uppercase tracking-widest">AI Prompt Context</h5>
-                    <div className="p-4 bg-slate-900 rounded-xl text-[11px] font-mono text-teal-400/80 leading-relaxed">
-                      "A high-tech, medical-grade holographic render of a FULL HUMAN BODY anatomy... futuristic, glowing teal and cyan neon lines on a dark background..."
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
         </Tabs>
 
         {/* Delete Confirmation Dialog */}
