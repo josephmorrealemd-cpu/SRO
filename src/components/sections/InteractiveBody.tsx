@@ -1,11 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Info, X, Activity, ChevronRight, Sparkles, RefreshCw } from "lucide-react";
-import { collection, doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase";
-import { isVerifiedAdminUser } from "@/lib/admins";
+import { Info, X, Activity, ChevronRight, Sparkles } from "lucide-react";
 import { BookingDialog } from "../ui/BookingDialog";
-import { toast } from "sonner";
+import SkeletonFigure from "./SkeletonFigure";
 
 interface BodyPart {
   id: string;
@@ -85,115 +82,6 @@ const BODY_PARTS: BodyPart[] = [
 
 export default function InteractiveBody() {
   const [selectedPart, setSelectedPart] = useState<BodyPart | null>(null);
-  const [hologramUrl, setHologramUrl] = useState<string>("https://images.unsplash.com/photo-1530210124550-912dc1381cb8?auto=format&fit=crop&q=80&w=800");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const isGeneratingRef = useRef(false);
-  const hasAttemptedRefresh = useRef(false);
-
-  useEffect(() => {
-    isGeneratingRef.current = isGenerating;
-  }, [isGenerating]);
-
-  useEffect(() => {
-    // Fetch the daily hologram once on load
-    const fetchHologram = async () => {
-      try {
-        const isAdmin = await isVerifiedAdminUser(auth.currentUser);
-
-        const docRef = doc(db, "app_state", "hologram");
-        const snapshot = await getDoc(docRef);
-
-        if (snapshot.exists()) {
-          const data = snapshot.data();
-          if (data.hologramUrl) {
-            setHologramUrl(data.hologramUrl);
-          }
-
-          // Lazy refresh logic: if last update was yesterday or earlier
-          const lastUpdate = data.lastHologramUpdate?.toDate();
-          const lastAttempt = data.lastAttemptAt?.toDate();
-          const now = new Date();
-
-          if (lastUpdate && isAdmin) {
-            const isStale = lastUpdate.getDate() !== now.getDate() || 
-                            lastUpdate.getMonth() !== now.getMonth() || 
-                            lastUpdate.getFullYear() !== now.getFullYear();
-            
-            const coolDownPeriod = 4 * 60 * 60 * 1000;
-            const isCoolDownOver = !lastAttempt || (now.getTime() - lastAttempt.getTime()) > coolDownPeriod;
-
-            if (isStale && isCoolDownOver && !isGeneratingRef.current && !hasAttemptedRefresh.current) {
-              console.log("Hologram is stale, triggering admin refresh...");
-              hasAttemptedRefresh.current = true;
-              generateHologram();
-            }
-          }
-        } else if (isAdmin && !isGeneratingRef.current && !hasAttemptedRefresh.current) {
-          // If the document doesn't exist at all, only an admin can initialize it
-          console.log("Hologram doc missing, initializing as admin...");
-          hasAttemptedRefresh.current = true;
-          generateHologram();
-        }
-      } catch (error: any) {
-        console.warn("Hologram fetch error (falling back to static asset):", error.message);
-        // Fallback is already set in state
-      }
-    };
-
-    fetchHologram();
-  }, []); // Only fetch once on mount
-
-  const generateHologram = async () => {
-    setIsGenerating(true);
-    try {
-      // Mark the attempt in Firestore immediately to prevent other users from trying
-      await setDoc(doc(db, "app_state", "hologram"), {
-        lastAttemptAt: serverTimestamp()
-      }, { merge: true });
-
-      const response = await fetch("/api/generate-hologram", {
-        method: "POST",
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to generate hologram");
-      }
-
-      const { imageUrl } = await response.json();
-      
-      if (imageUrl) {
-        setHologramUrl(imageUrl);
-        
-        // Save to global app state so all users see the same daily image
-        try {
-          await setDoc(doc(db, "app_state", "hologram"), {
-            hologramUrl: imageUrl,
-            lastHologramUpdate: serverTimestamp()
-          }, { merge: true });
-        } catch (dbError) {
-          console.error("Failed to save global hologram state:", dbError);
-        }
-      }
-    } catch (error: any) {
-      console.error("Failed to generate hologram:", error);
-      
-      // Check for quota exceeded (429)
-      if (error?.message?.includes("429") || error?.message?.includes("quota")) {
-        toast.error("AI Quota exceeded. Using professional static anatomy.");
-      } else {
-        toast.error("AI Generation failed. Using professional static anatomy.");
-      }
-      
-      // Keep a high quality fallback
-      setHologramUrl("https://images.unsplash.com/photo-1530210124550-912dc1381cb8?auto=format&fit=crop&q=80&w=800");
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  // Removed useEffect to prevent automatic AI generation on every page load
-  // This saves your Gemini API quota (Option B)
 
   return (
     <section id="interactive-body" className="py-24 bg-slate-50 overflow-hidden">
@@ -225,47 +113,20 @@ export default function InteractiveBody() {
               className="absolute left-0 right-0 h-[2px] bg-teal-400/60 shadow-[0_0_20px_rgba(45,212,191,0.8)] z-10 pointer-events-none"
             />
 
-            {/* Holographic Human Render */}
-            <div className="relative w-full h-full flex items-center justify-center overflow-hidden bg-slate-900/50 rounded-3xl">
-              <AnimatePresence mode="wait">
-                {isGenerating ? (
-                  <motion.div 
-                    key="loading"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="flex flex-col items-center gap-4 text-teal-400"
-                  >
-                    <RefreshCw className="w-8 h-8 animate-spin" />
-                    <span className="text-xs font-bold uppercase tracking-widest">Generating Hologram...</span>
-                  </motion.div>
-                ) : (
-                  <motion.img 
-                    key="hologram"
-                    src={hologramUrl || "https://images.unsplash.com/photo-1583912267550-d44d7a125821?auto=format&fit=crop&q=80&w=800"} 
-                    alt="Holographic Human Anatomy" 
-                    className="w-full h-full object-contain opacity-90"
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 0.9, scale: 1 }}
-                    transition={{ duration: 1.5, ease: "easeOut" }}
-                    referrerPolicy="no-referrer"
-                    style={{ 
-                      filter: 'hue-rotate(160deg) brightness(1.2) contrast(1.1) drop-shadow(0 0 15px rgba(20, 184, 166, 0.4))',
-                    }}
-                  />
-                )}
-              </AnimatePresence>
-              
-              {/* Pulsing Glow Background */}
-              <motion.div 
-                className="absolute w-[400px] h-[400px] bg-teal-500/10 rounded-full blur-[100px] -z-10"
-                animate={{ 
-                  scale: [1, 1.1, 1],
-                  opacity: [0.2, 0.4, 0.2]
-                }}
-                transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-              />
+            {/* Static holographic skeleton (coordinates match hotspot percentages) */}
+            <div className="absolute inset-0 pointer-events-none z-[1]">
+              <SkeletonFigure className="w-full h-full" />
             </div>
+
+            {/* Pulsing Glow Background */}
+            <motion.div 
+              className="absolute w-[400px] h-[400px] bg-teal-500/10 rounded-full blur-[100px] -z-10"
+              animate={{ 
+                scale: [1, 1.1, 1],
+                opacity: [0.2, 0.4, 0.2]
+              }}
+              transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+            />
 
             {/* Hotspots */}
             {BODY_PARTS.map((part) => (
